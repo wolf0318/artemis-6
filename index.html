@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>루나 알파 데이터 수사대 · 6차시</title>
+<meta name="description" content="아르테미스 프로젝트 6차시 – 데이터를 믿어도 될까? 속이는 차트 구별하기 · 누락 데이터 탐정 · 6차시 정리">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#060d1f; --panel:#0f1c38; --panel2:#152a52; --line:rgba(120,190,255,.22);
+  --ink:#eef4ff; --muted:#9db2d8; --amber:#ffb84d; --cyan:#4fd8ff; --green:#3ee6a8;
+  --red:#ff5f6d; --violet:#a98bff; --pink:#ff7ac6;
+  --r:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:radial-gradient(1200px 700px at 80% -10%, #1b3570 0%, transparent 60%),
+             radial-gradient(900px 600px at -10% 110%, #2a1858 0%, transparent 55%), var(--bg);
+  color:var(--ink); font-family:"Noto Sans KR",system-ui,sans-serif; font-size:18px; line-height:1.55;
+  overflow-x:hidden; -webkit-tap-highlight-color:transparent;
+}
+.stars,.stars2{position:fixed;inset:-50%;pointer-events:none;z-index:0;
+  background-image:radial-gradient(1.5px 1.5px at 20px 30px,#fff,transparent),radial-gradient(1px 1px at 120px 80px,#cfe8ff,transparent),
+  radial-gradient(1.2px 1.2px at 200px 160px,#fff,transparent),radial-gradient(1px 1px at 60px 200px,#ffe7b0,transparent),
+  radial-gradient(1.6px 1.6px at 260px 40px,#bfe3ff,transparent);
+  background-size:300px 240px; opacity:.55; animation:drift 140s linear infinite}
+.stars2{background-size:420px 380px;opacity:.35;animation-duration:220s;animation-direction:reverse}
+@keyframes drift{to{transform:translate(300px,240px)}}
+.moon{position:fixed;right:-120px;bottom:-140px;width:420px;height:420px;border-radius:50%;z-index:0;pointer-events:none;
+  background:radial-gradient(circle at 35% 35%,#e9edf5,#b9c2d6 55%,#7c86a3 100%);opacity:.12;filter:blur(.3px)}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:18px 16px 90px}
+h1,h2,h3,.jua{font-family:"Jua","Noto Sans KR",sans-serif;font-weight:400;letter-spacing:.2px}
+h1{font-size:clamp(30px,5vw,48px);margin:.2em 0}
+h2{font-size:clamp(24px,3.6vw,34px);margin:.2em 0 .4em}
+h3{font-size:24px;margin:.2em 0 .5em}
+p{margin:.4em 0}
+.muted{color:var(--muted)}
+.panel{background:linear-gradient(180deg,rgba(21,42,82,.92),rgba(15,28,56,.92));border:1px solid var(--line);
+  border-radius:var(--r);padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(6px)}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.btn{appearance:none;border:0;cursor:pointer;font:inherit;font-weight:700;color:#08142c;background:var(--amber);
+  padding:14px 22px;border-radius:16px;font-size:20px;box-shadow:0 6px 0 #c4842a,0 10px 24px rgba(255,184,77,.25);
+  transition:transform .08s ease, box-shadow .08s ease, filter .2s}
+.btn:hover{filter:brightness(1.07)} .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #c4842a}
+.btn.cyan{background:var(--cyan);box-shadow:0 6px 0 #2a98bd,0 10px 24px rgba(79,216,255,.25)}
+.btn.cyan:active{box-shadow:0 2px 0 #2a98bd}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);box-shadow:0 4px 0 rgba(0,0,0,.35);border:1px solid var(--line)}
+.btn.ghost:active{box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
+.chip{appearance:none;border:2px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);font:inherit;font-weight:700;
+  padding:10px 16px;border-radius:999px;cursor:pointer;transition:.15s;font-size:18px}
+.chip:hover{border-color:var(--cyan)} .chip.on{background:var(--cyan);color:#06213a;border-color:var(--cyan)}
+.chip.ok{background:var(--green);color:#063626;border-color:var(--green)} .chip.no{background:var(--red);color:#fff;border-color:var(--red)}
+.tag{display:inline-block;font-size:14px;font-weight:700;padding:3px 10px;border-radius:999px;background:rgba(79,216,255,.15);color:var(--cyan);border:1px solid rgba(79,216,255,.35)}
+.tag.amber{background:rgba(255,184,77,.15);color:var(--amber);border-color:rgba(255,184,77,.4)}
+.tag.red{background:rgba(255,95,109,.15);color:var(--red);border-color:rgba(255,95,109,.4)}
+.tag.green{background:rgba(62,230,168,.15);color:var(--green);border-color:rgba(62,230,168,.4)}
+input[type=text],textarea{width:100%;font:inherit;color:var(--ink);background:rgba(4,10,26,.6);border:2px solid var(--line);
+  border-radius:14px;padding:12px 14px;outline:none;transition:border-color .2s}
+input[type=text]:focus,textarea:focus{border-color:var(--cyan)}
+textarea{min-height:96px;resize:vertical}
+/* top bar */
+.top{position:sticky;top:0;z-index:20;background:rgba(6,13,31,.78);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.logo{font-family:Jua;font-size:22px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
+.logo .dot.off{background:var(--red);box-shadow:0 0 12px var(--red)}
+.sp{flex:1}
+.badge-me{font-weight:900;background:var(--panel2);border:1px solid var(--line);padding:6px 12px;border-radius:999px}
+.starcount{font-weight:900;color:var(--amber);font-size:20px;display:flex;align-items:center;gap:4px}
+.starcount.pop{animation:pop .5s}
+@keyframes pop{30%{transform:scale(1.5)}100%{transform:scale(1)}}
+.iconbtn{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);border-radius:12px;padding:6px 10px;cursor:pointer;font-size:18px}
+/* entry */
+.numgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:14px}
+@media(max-width:560px){.numgrid{grid-template-columns:repeat(4,1fr)}}
+.num{position:relative;appearance:none;border:2px solid var(--line);background:linear-gradient(180deg,#1b3364,#12244a);color:var(--ink);
+  font-family:Jua;font-size:34px;border-radius:18px;padding:16px 0;cursor:pointer;transition:.15s}
+.num:hover{transform:translateY(-3px);border-color:var(--cyan);box-shadow:0 8px 24px rgba(79,216,255,.25)}
+.num small{display:block;font-family:"Noto Sans KR";font-size:12px;color:var(--muted);margin-top:2px}
+.num.busy{opacity:.55} .num.busy small{color:var(--amber)}
+.num.mine{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,184,77,.35)}
+.groupgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:12px}
+/* hub */
+.missions{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:860px){.missions{grid-template-columns:1fr}}
+.mcard{position:relative;cursor:pointer;border-radius:24px;padding:22px;border:1px solid var(--line);overflow:hidden;
+  background:linear-gradient(160deg,#1a3366,#101f40);transition:transform .2s, box-shadow .2s;min-height:230px}
+.mcard:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.mcard .planet{position:absolute;right:-42px;top:-42px;width:120px;height:120px;border-radius:50%;opacity:.55;filter:blur(.2px);z-index:0}
+.mcard>*:not(.planet):not(.lockico){position:relative;z-index:1}
+.mcard .num2{font-family:Jua;font-size:18px;color:var(--cyan)}
+.mcard h3{font-size:28px;margin:.3em 0 .2em}
+.mcard .bar{height:10px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:14px}
+.mcard .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:99px;transition:width .6s}
+.mcard.locked{cursor:not-allowed;filter:grayscale(.7) brightness(.7)}
+.mcard.done{border-color:rgba(62,230,168,.6)}
+.lockico{position:absolute;inset:0;display:grid;place-items:center;font-size:44px;background:rgba(6,13,31,.35)}
+/* steps */
+.steps{display:flex;gap:8px;margin:6px 0 14px;flex-wrap:wrap}
+.steps span{width:38px;height:8px;border-radius:99px;background:rgba(255,255,255,.12)}
+.steps span.on{background:var(--cyan)} .steps span.done{background:var(--green)}
+.qbox{background:rgba(4,10,26,.45);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+.qnum{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--amber);color:#08142c;font-weight:900;margin-right:8px}
+.fb{margin-top:10px;padding:12px 14px;border-radius:14px;font-weight:700;display:none}
+.fb.show{display:block;animation:fadein .35s}
+.fb.ok{background:rgba(62,230,168,.14);border:1px solid rgba(62,230,168,.5);color:#bff7e3}
+.fb.no{background:rgba(255,95,109,.14);border:1px solid rgba(255,95,109,.5);color:#ffd2d6}
+.fb.info{background:rgba(79,216,255,.12);border:1px solid rgba(79,216,255,.45);color:#d4f3ff}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.shake{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.chartbox{background:#0a1530;border:1px solid var(--line);border-radius:16px;padding:10px;position:relative}
+.chartbox .ct{font-weight:700;font-size:16px;margin:2px 6px 4px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+svg.chart{width:100%;height:auto;display:block}
+.slider{margin:10px 0}
+.slider label{display:flex;justify-content:space-between;font-weight:700}
+.slider label b{color:var(--amber);font-size:20px}
+input[type=range]{width:100%;accent-color:var(--amber);height:34px}
+.mission-pill{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.mp{flex:1;min-width:200px;border:2px dashed var(--line);border-radius:16px;padding:12px;cursor:pointer;transition:.2s;background:rgba(255,255,255,.03)}
+.mp.on{border-style:solid;border-color:var(--cyan);background:rgba(79,216,255,.08)}
+.mp.clear{border-style:solid;border-color:var(--green);background:rgba(62,230,168,.1)}
+.mp b{display:block;font-family:Jua;font-size:20px}
+/* detective */
+.timeline{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin:10px 0 4px}
+.hr{height:54px;border-radius:6px;cursor:pointer;position:relative;transition:.2s;border:1px solid transparent}
+.hr.got{background:linear-gradient(180deg,#2bd49a,#178a66)}
+.hr.miss{background:repeating-linear-gradient(45deg,#1a2442,#1a2442 6px,#222f55 6px,#222f55 12px);border-color:#2a3a66}
+.hr.miss.found{background:repeating-linear-gradient(45deg,#5a1622,#5a1622 6px,#7a1f2e 6px,#7a1f2e 12px);border-color:var(--red);animation:blink 1.2s infinite}
+@keyframes blink{50%{box-shadow:0 0 14px var(--red)}}
+.tl-labels{display:grid;grid-template-columns:repeat(24,1fr);font-size:11px;color:var(--muted);text-align:center}
+.zones{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:560px){.zones{grid-template-columns:repeat(2,1fr)}}
+.zone{border-radius:16px;padding:14px;text-align:center;cursor:pointer;border:2px solid var(--line);background:rgba(255,255,255,.04);transition:.2s;min-height:120px}
+.zone .zn{font-family:Jua;font-size:28px}
+.zone.ok{border-color:rgba(62,230,168,.6)} .zone.bad{border-color:var(--red);background:rgba(255,95,109,.1)}
+.zone.unk{border-color:var(--amber);background:rgba(255,184,77,.08)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:860px){.cards{grid-template-columns:repeat(2,1fr)}}
+.flip{perspective:1000px;cursor:pointer;min-height:250px}
+.flip .in{position:relative;width:100%;height:100%;min-height:250px;transition:transform .7s;transform-style:preserve-3d}
+.flip.open .in{transform:rotateY(180deg)}
+.flip .f,.flip .b{position:absolute;inset:0;backface-visibility:hidden;border-radius:18px;padding:14px;border:1px solid var(--line)}
+.flip .f{background:linear-gradient(160deg,#27407a,#16264c);display:grid;place-items:center;text-align:center}
+.flip .f .cn{font-family:Jua;font-size:46px;color:var(--amber)}
+.flip .b{background:linear-gradient(160deg,#fff7e6,#ffe9c2);color:#2a1d05;transform:rotateY(180deg);font-size:15.5px;overflow:auto}
+.flip .b h4{margin:0 0 6px;font-size:17px}
+.flip .b .ev{margin-top:8px;font-weight:900;color:#8a4b00}
+.flip.evid .b{box-shadow:0 0 0 4px var(--amber)}
+.radar{width:120px;height:120px;border-radius:50%;border:2px solid rgba(62,230,168,.5);position:relative;overflow:hidden;
+  background:radial-gradient(circle,rgba(62,230,168,.15),transparent 70%)}
+.radar:before{content:"";position:absolute;inset:0;background:conic-gradient(from 0deg,rgba(62,230,168,.55),transparent 25%);animation:spin 2.4s linear infinite;border-radius:50%}
+.radar:after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:var(--green)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-box{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.ai-say{font-family:Jua;font-size:26px;padding:14px 18px;border-radius:18px;background:rgba(62,230,168,.12);border:1px solid rgba(62,230,168,.45);position:relative}
+.ai-say.glitch{animation:glitch .9s steps(2) 3;background:rgba(255,95,109,.14);border-color:rgba(255,95,109,.5)}
+@keyframes glitch{0%{transform:translate(0)}25%{transform:translate(-3px,1px);filter:hue-rotate(40deg)}50%{transform:translate(3px,-1px)}75%{transform:translate(-1px,2px);filter:hue-rotate(-40deg)}100%{transform:none}}
+.report{background:linear-gradient(180deg,#f4f7ff,#e3eaf8);color:#13213f;border-radius:18px;padding:22px;position:relative;font-size:19px;line-height:1.9;border:2px solid #b8c6e6}
+.report .hd{display:flex;justify-content:space-between;align-items:center;border-bottom:2px dashed #9fb0d8;padding-bottom:8px;margin-bottom:12px}
+.report .hd b{font-family:Jua;font-size:24px;color:#0b2a6b}
+.blank{display:inline-block;min-width:150px;border-bottom:3px solid #0b5bd3;padding:0 6px;font-weight:900;color:#0b3fa0;cursor:text}
+.blank input{border:0;background:#fff;color:#0b3fa0;font-weight:900;font-size:19px;padding:4px 8px;border-radius:8px;width:min(420px,70vw);border:2px solid #9fb0d8}
+.stamp{position:absolute;right:18px;bottom:14px;font-family:Jua;font-size:30px;color:#d6283c;border:4px solid #d6283c;border-radius:12px;padding:2px 12px;transform:rotate(-12deg) scale(2);opacity:0;transition:.4s cubic-bezier(.2,1.6,.4,1)}
+.stamp.on{opacity:.9;transform:rotate(-12deg) scale(1)}
+.sendbar{height:16px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:12px}
+.sendbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--violet),var(--pink))}
+.order{display:grid;gap:10px}
+.ocard{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;border:2px solid var(--line);background:rgba(255,255,255,.05);cursor:pointer;font-weight:700;transition:.2s}
+.ocard .o{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1);font-family:Jua;font-size:20px}
+.ocard.pick{border-color:var(--cyan);background:rgba(79,216,255,.1)} .ocard.pick .o{background:var(--cyan);color:#06213a}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:12px}
+.note{background:#fff3b5;color:#3a2c00;border-radius:12px;padding:12px;transform:rotate(var(--rot,0deg));box-shadow:0 8px 18px rgba(0,0,0,.35);animation:fadein .4s}
+.note b{display:block;font-family:Jua;color:#8a5b00}
+.badgebig{display:grid;place-items:center;text-align:center;padding:26px}
+.medal{width:150px;height:150px;border-radius:50%;display:grid;place-items:center;font-size:70px;
+  background:radial-gradient(circle at 35% 30%,#fff2c2,#ffb84d 55%,#c47a14);box-shadow:0 0 0 8px rgba(255,184,77,.25),0 0 50px rgba(255,184,77,.55);animation:float 3s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-8px)}}
+.toast{position:fixed;left:50%;top:76px;transform:translate(-50%,-30px);opacity:0;z-index:60;background:var(--amber);color:#08142c;
+  font-weight:900;padding:12px 20px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.4);transition:.35s;max-width:92vw;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.announce{position:fixed;left:0;right:0;bottom:0;z-index:50;background:linear-gradient(90deg,#ff5f6d,#ffb84d);color:#1b0b00;font-weight:900;
+  padding:12px 16px;text-align:center;font-size:20px;transform:translateY(110%);transition:.4s}
+.announce.show{transform:none}
+.modal{position:fixed;inset:0;background:rgba(2,6,16,.7);z-index:70;display:none;place-items:center;padding:16px}
+.modal.show{display:grid}
+.modal .box{max-width:520px;width:100%}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:80}
+.typer{font-size:22px;min-height:7.5em;white-space:pre-wrap}
+.typer .cur{display:inline-block;width:10px;height:1.1em;background:var(--cyan);vertical-align:-3px;animation:blink2 .8s infinite}
+@keyframes blink2{50%{opacity:0}}
+.offline{display:none;background:rgba(255,95,109,.15);border:1px solid rgba(255,95,109,.5);color:#ffd2d6;padding:8px 12px;border-radius:12px;margin-bottom:12px;font-weight:700}
+.offline.show{display:block}
+.hint{font-size:15px;color:var(--muted)}
+.big{font-size:22px}
+.center{text-align:center}
+.mt{margin-top:14px}.mt2{margin-top:24px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="stars"></div><div class="stars2"></div><div class="moon"></div>
+<canvas id="fx"></canvas>
+
+<div class="top">
+  <div class="in">
+    <div class="logo"><span class="dot off" id="netdot" title="연결 상태"></span>루나 알파 데이터 수사대</div>
+    <div class="sp"></div>
+    <div class="starcount" id="stars" title="모은 별">⭐ <span id="starn">0</span></div>
+    <div class="badge-me hidden" id="mebadge"></div>
+    <button class="iconbtn" id="sndbtn" title="효과음 켜기/끄기">🔇</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="offline" id="offline">서버 연결이 끊겼어요. 활동은 계속할 수 있지만 선생님 화면에는 연결되면 다시 저장돼요.</div>
+  <main id="app"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="announce" id="announce"></div>
+<div class="modal" id="modal"><div class="box panel" id="modalbox"></div></div>
+
+<script>
+/* ===================== 설정 ===================== */
+const FB_CONFIG = {
+  apiKey: "AIzaSyAQnkse4wP-o0pLE3Eyt9G69JdRJB6xzWI",
+  authDomain: "artemis-6.firebaseapp.com",
+  databaseURL: "https://artemis-6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "artemis-6",
+  storageBucket: "artemis-6.firebasestorage.app",
+  messagingSenderId: "1686860032",
+  appId: "1:1686860032:web:780e04604f720bcd8f43e5"
+};
+const qs = new URLSearchParams(location.search);
+const ROOM = ((qs.get('room')||'main').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,20))||'main';
+const BASE = 'artemis6/'+ROOM;
+const MAXN = 20;
+
+/* ===================== 작은 도구 ===================== */
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ls = { get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}, del(k){try{localStorage.removeItem(k)}catch(e){}} };
+let deviceId = ls.get('a6_dev'); if(!deviceId){ deviceId = Math.random().toString(36).slice(2,10); ls.set('a6_dev',deviceId); }
+
+function toast(msg,ms=2200){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),ms); }
+function modal(html){ $('#modalbox').innerHTML=html; $('#modal').classList.add('show'); }
+function closeModal(){ $('#modal').classList.remove('show'); }
+
+/* ===================== 효과음 ===================== */
+let soundOn = ls.get('a6_snd')==='1';
+let actx=null;
+function beep(type){
+  if(!soundOn) return;
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const seq = {ok:[[660,.08],[880,.12]], no:[[220,.15],[180,.18]], star:[[784,.07],[988,.07],[1319,.14]], send:[[440,.06],[554,.06],[659,.06],[880,.2]], tick:[[1200,.03]]}[type]||[[600,.1]];
+    let t=actx.currentTime;
+    seq.forEach(([f,d])=>{ const o=actx.createOscillator(), g=actx.createGain(); o.type= type==='no'?'sawtooth':'triangle'; o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.18,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+d);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+d+.02); t+=d; });
+  }catch(e){}
+}
+function setSndBtn(){ $('#sndbtn').textContent = soundOn?'🔊':'🔇'; }
+$('#sndbtn').onclick=()=>{ soundOn=!soundOn; ls.set('a6_snd',soundOn?'1':'0'); setSndBtn(); if(soundOn) beep('ok'); };
+setSndBtn();
+
+/* ===================== 꽃가루 효과 ===================== */
+const fx = $('#fx'), fctx = fx.getContext('2d'); let parts=[], fxOn=false;
+function resizeFx(){ fx.width=innerWidth*devicePixelRatio; fx.height=innerHeight*devicePixelRatio; }
+addEventListener('resize',resizeFx); resizeFx();
+function confetti(n=120, x=innerWidth/2, y=innerHeight/3){
+  const cols=['#ffb84d','#4fd8ff','#3ee6a8','#ff7ac6','#a98bff','#ffffff'];
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=4+Math.random()*9;
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-6,g:.28+Math.random()*.15,r:3+Math.random()*5,c:cols[i%cols.length],life:90+Math.random()*50,rot:Math.random()*6,vr:(Math.random()-.5)*.4,star:Math.random()<.25}); }
+  if(!fxOn){ fxOn=true; requestAnimationFrame(tickFx); }
+}
+function starBurst(el){ const r = el? el.getBoundingClientRect():null; confetti(60, r? r.left+r.width/2 : innerWidth/2, r? r.top+r.height/2 : innerHeight/3); }
+function tickFx(){
+  const d=devicePixelRatio; fctx.clearRect(0,0,fx.width,fx.height);
+  parts = parts.filter(p=>p.life>0);
+  parts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.vx*=.99; p.rot+=p.vr; p.life--;
+    fctx.save(); fctx.translate(p.x*d,p.y*d); fctx.rotate(p.rot); fctx.globalAlpha=Math.min(1,p.life/40); fctx.fillStyle=p.c;
+    if(p.star){ fctx.beginPath(); for(let i=0;i<5;i++){ const a=i*4*Math.PI/5; fctx.lineTo(Math.cos(a)*p.r*1.6*d,Math.sin(a)*p.r*1.6*d);} fctx.fill(); }
+    else fctx.fillRect(-p.r*d,-p.r*.6*d,p.r*2*d,p.r*1.2*d);
+    fctx.restore(); });
+  if(parts.length) requestAnimationFrame(tickFx); else { fxOn=false; fctx.clearRect(0,0,fx.width,fx.height); }
+}
+
+/* ===================== SVG 차트 ===================== */
+function niceStep(span){ const raw=span/5; const p=Math.pow(10,Math.floor(Math.log10(raw))); const n=raw/p; const m = n<1.5?1:n<3?2:n<7?5:10; return m*p; }
+function fmt(v,step){ const dec = step>=1?0: step>=.1?1:2; return (+v).toFixed(dec); }
+function chartSVG(o){
+  const W=o.w||560, H=o.h||300, padL=58, padR=18, padT=22, padB=46;
+  const iw=W-padL-padR, ih=H-padT-padB; const ymin=+o.ymin, ymax=+o.ymax; const span=Math.max(ymax-ymin,1e-6);
+  const Y=v=>padT+ih-(v-ymin)/span*ih; const n=o.labels.length; const X=i=> o.bar? padL+iw*(i+.5)/n : padL+(n===1?iw/2: iw*i/(n-1));
+  const step=niceStep(span); const t0=Math.ceil(ymin/step-1e-9)*step; let g='';
+  const cid='c'+Math.random().toString(36).slice(2,8);
+  for(let t=t0; t<=ymax+1e-9; t+=step){ const y=Y(t); g+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" stroke="rgba(160,190,240,.16)"/><text x="${padL-8}" y="${y+5}" text-anchor="end" font-size="14" fill="#9db2d8">${fmt(t,step)}</text>`; }
+  let xl=''; o.labels.forEach((l,i)=>{ xl+=`<text x="${X(i)}" y="${H-padB+24}" text-anchor="middle" font-size="14" fill="#cfe0ff">${esc(l)}</text>`; });
+  const col=o.color||'#4fd8ff';
+  let body='';
+  if(o.ref!=null && o.ref>=ymin && o.ref<=ymax){ const y=Y(o.ref); body+=`<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" stroke="#ff5f6d" stroke-width="2.5" stroke-dasharray="7 6"/><text x="${W-padR}" y="${y-6}" text-anchor="end" font-size="13" fill="#ff9aa3">${esc(o.refLabel||'기준')}</text>`; }
+  if(o.bar){
+    const bw=iw/n*.5;
+    o.values.forEach((v,i)=>{ const top=Y(Math.min(Math.max(v,ymin),ymax)); const base=Y(Math.max(ymin,Math.min(0,ymax)) ); const b0 = ymin>0? padT+ih : base;
+      body+=`<rect x="${X(i)-bw/2}" y="${Math.min(top,b0)}" width="${bw}" height="${Math.abs(b0-top)}" rx="6" fill="${o.colors?o.colors[i]:col}" opacity=".92"/>`;
+      if(o.showVals!==false) body+=`<text x="${X(i)}" y="${Math.min(top,b0)-8}" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">${esc(o.valFmt? o.valFmt(v): v)}</text>`; });
+  } else {
+    const pts=o.values.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+    body+=`<g clip-path="url(#${cid})"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" ${o.anim?'class="draw"':''}/>`;
+    o.values.forEach((v,i)=>{ body+=`<circle cx="${X(i)}" cy="${Y(v)}" r="6" fill="${col}" stroke="#0a1530" stroke-width="2"/>`; });
+    body+='</g>';
+    if(o.showVals!==false) o.values.forEach((v,i)=>{ const y=Y(v); if(v>=ymin-1e-9 && v<=ymax+1e-9) body+=`<text x="${X(i)}" y="${y-12}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">${esc(o.valFmt? o.valFmt(v): v)}</text>`; });
+    const out=o.values.filter(v=>v<ymin-1e-9||v>ymax+1e-9).length;
+    if(out) body+=`<text x="${padL+8}" y="${padT+16}" font-size="14" font-weight="700" fill="#ffb84d">⚠ 화면 밖으로 나간 점 ${out}개</text>`;
+  }
+  const yl = o.yLabel? `<text x="14" y="${padT+ih/2}" transform="rotate(-90 14 ${padT+ih/2})" text-anchor="middle" font-size="13" fill="#9db2d8">${esc(o.yLabel)}</text>`:'';
+  const cut = (o.bar && ymin>0)? `<path d="M${padL-6} ${padT+ih-14} l12 -6 M${padL-6} ${padT+ih-6} l12 -6" stroke="#ffb84d" stroke-width="3"/>`:'';
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||'차트')}"><defs><clipPath id="${cid}"><rect x="${padL}" y="${padT}" width="${iw}" height="${ih}"/></clipPath></defs>
+    ${g}<line x1="${padL}" x2="${padL}" y1="${padT}" y2="${padT+ih}" stroke="#7f9ccc"/><line x1="${padL}" x2="${W-padR}" y1="${padT+ih}" y2="${padT+ih}" stroke="#7f9ccc"/>${cut}${body}${xl}${yl}</svg>`;
+}
+
+/* ===================== 데이터 ===================== */
+const O2 = { labels:['6:20','7:20','8:20','9:20','10:20','11:20'], values:[20.1,19.0,18.5,25.3,18.0,17.5] };  // 5차시 교재 31쪽 A구역
+const SAME = { labels:['1시간','2시간','3시간','4시간','5시간'], values:[72,75,78,85,92] };          // 강의안 100번
+const TEMP = { labels:['0시','4시','8시','12시','16시','20시'], values:[22.1,22.3,22.0,22.2,22.0,22.3] }; // 교재 38쪽과 같은 범위(22.0~22.3°C)의 예시 값
+const CLUES = [
+  {n:5, t:'07:43', h:'B구역 산소 농도 – 야간 이후 감소', b:'산소 농도 19.5%.<br><b>[경고]</b> 어젯밤 18:00 이후 측정값 없음. 이 값이 실제인지 알 수 없음.'},
+  {n:25,t:'09:00', h:'B구역 산소 센서 – 수리 불가', b:'“센서 내부 회로가 습기로 고장 났어요!”<br>“현장 수리 불가. 지구에서 부품을 보내야 해요. B구역 데이터는 믿을 수 없어요!”'},
+  {n:27,t:'22:00', h:'야간 전체 점검 – 비상 상황 지속', b:'“5개 구역 점검 완료. A·B·C·D구역 여전히 위험 수준.”<br>“밤 사이 산소가 더 떨어질 것 같아요.”'},
+  {n:41,t:'07:10', h:'식사 시간 대원 대화 녹음', b:'박연구원: “밤에 두통이 심해요.”'}
+];
+const STEPS4 = ['데이터 범위 확인','Y축 눈금 확인','전체 흐름 보기','추가 정보 확인'];
+
+/* ===================== 상태 ===================== */
+let db=null, auth=null, online=false;
+let me = { num: +ls.get('a6_num_'+ROOM)||null, group: +ls.get('a6_grp_'+ROOM)||null };
+let my = {};               // 내 기록(서버와 같은 모양)
+let control = { open:{m1:true,m2:true,m3:true} };
+let roster = {};           // 다른 대원 접속 현황
+let wall = {};
+let resetSeen = ls.get('a6_reset_'+ROOM)||'';
+
+function getp(path,obj=my){ return path.split('/').reduce((o,k)=>o&&o[k],obj); }
+function setp(path,val){ const ks=path.split('/'); let o=my; ks.slice(0,-1).forEach(k=>{ if(typeof o[k]!=='object'||o[k]===null) o[k]={}; o=o[k]; }); o[ks.at(-1)]=val; }
+function save(path,val){ setp(path,val); if(db && me.num){ db.ref(`${BASE}/students/${me.num}/${path}`).set(val).catch(()=>{}); } }
+const debounced={}; function saveSoon(path,val,ms=700){ setp(path,val); clearTimeout(debounced[path]); debounced[path]=setTimeout(()=>save(path,val),ms); }
+function where(w){ save('where',w); save('seen', Date.now()); }
+function starTotal(){ return Object.keys(my.ach||{}).length; }
+function award(key, el){ if(getp('ach/'+key)) return false; save('ach/'+key, Date.now()); const s=$('#stars'); $('#starn').textContent=starTotal(); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); beep('star'); starBurst(el||s); return true; }
+function refreshTop(){ $('#starn').textContent=starTotal(); const b=$('#mebadge'); if(me.num){ b.classList.remove('hidden'); b.textContent=`${me.num}번 대원${me.group?` · ${me.group}조`:''}`; } else b.classList.add('hidden'); }
+
+/* ===================== 파이어베이스 ===================== */
+function initFirebase(){
+  if(!window.firebase){ initFirebase.tries=(initFirebase.tries||0)+1; if(initFirebase.tries>40){ offlineMode(); return; } setTimeout(initFirebase,300); return; }
+  try{
+    firebase.initializeApp(FB_CONFIG); auth=firebase.auth(); db=firebase.database();
+    db.ref('.info/connected').on('value',s=>{ online=!!s.val(); $('#netdot').classList.toggle('off',!online); $('#offline').classList.toggle('show',!online && initFirebase.ready); if(online) goPresence(); });
+    auth.onAuthStateChanged(u=>{ if(u){ initFirebase.ready=true; startData(); } });
+    auth.signInAnonymously().catch(e=>{ console.warn(e); offlineMode(); });
+  }catch(e){ console.warn(e); offlineMode(); }
+}
+function offlineMode(){ $('#offline').classList.add('show'); }
+let presenceRef=null;
+function goPresence(){
+  if(!db||!me.num) return;
+  const r=db.ref(`${BASE}/students/${me.num}`);
+  r.child('online').onDisconnect().set(false);
+  r.child('online').set(true); r.child('dev').set(deviceId); r.child('seen').set(Date.now());
+  if(me.group) r.child('group').set(me.group);
+}
+let started=false;
+function startData(){
+  if(started) return; started=true;
+  db.ref(`${BASE}/control`).on('value',s=>{ const v=s.val()||{}; control=Object.assign({open:{m1:true,m2:true,m3:true}},v); control.open=Object.assign({m1:true,m2:true,m3:true},v.open||{});
+    handleReset(); showAnnounce(); if(current==='hub') render(); });
+  db.ref(`${BASE}/students`).on('value',s=>{ const v=s.val()||{}; roster={}; Object.keys(v).forEach(k=>{ roster[k]={online:!!v[k].online,dev:v[k].dev,group:v[k].group}; }); if(current==='entry') render(); });
+  db.ref(`${BASE}/wall`).on('value',s=>{ wall=s.val()||{}; if(current==='m3') renderWall(); });
+  if(me.num){ loadMine().then(()=>{ goPresence(); if(current==='entry') current = me.group ? (getp('briefed')?'hub':'brief') : 'group'; render(); }); } else render();
+}
+function loadMine(){ return db.ref(`${BASE}/students/${me.num}`).once('value').then(s=>{ const v=s.val(); if(v){ my=v; if(v.group&&!me.group){ me.group=v.group; ls.set('a6_grp_'+ROOM,v.group);} } refreshTop(); }).catch(()=>{}); }
+function handleReset(){
+  const r = control.resetAt? String(control.resetAt):'';
+  if(r && r!==resetSeen){ resetSeen=r; ls.set('a6_reset_'+ROOM,r);
+    if(started && (me.num)){ ls.del('a6_num_'+ROOM); ls.del('a6_grp_'+ROOM); me={num:null,group:null}; my={}; refreshTop(); current='entry'; render(); toast('선생님이 새 수업을 시작했어요. 번호를 다시 골라요!',3500); } }
+}
+let lastAnn='';
+function showAnnounce(){
+  const a=control.announce; const el=$('#announce');
+  if(a && a.text && Date.now()-(a.ts||0) < 1000*60*10){ el.textContent='📢 '+a.text; el.classList.add('show'); if(a.ts!==lastAnn){ lastAnn=a.ts; beep('send'); } }
+  else el.classList.remove('show');
+}
+
+/* ===================== 화면 이동 ===================== */
+let current='entry', sub=0;
+function go(screen, s=0){ current=screen; sub=s; render(); scrollTo({top:0,behavior:'smooth'}); }
+function render(){
+  refreshTop();
+  if(!me.num) current = (current==='group')? 'group':'entry';
+  const app=$('#app');
+  ({entry:renderEntry, group:renderGroup, brief:renderBrief, hub:renderHub, m1:renderM1, m2:renderM2, m3:renderM3, badge:renderBadge}[current]||renderEntry)(app);
+}
+
+/* ===================== 입장 ===================== */
+function renderEntry(app){
+  const nums=[...Array(MAXN)].map((_,i)=>i+1);
+  app.innerHTML=`
+  <section class="panel center">
+    <div class="tag amber">아르테미스 프로젝트 · 6차시</div>
+    <h1>🌙 데이터를 믿어도 될까?</h1>
+    <p class="big">루나 알파 데이터 수사대에 온 걸 환영해요!<br><b>내 번호</b>를 눌러 접속해요.</p>
+    <div class="numgrid">${nums.map(n=>{ const r=roster[n]; const busy=r&&r.online&&r.dev!==deviceId; const mine=r&&r.dev===deviceId;
+      return `<button class="num ${busy?'busy':''} ${mine?'mine':''}" data-n="${n}">${n}<small>${busy?'접속 중':mine?'내 자리':'비어 있음'}</small></button>`; }).join('')}</div>
+    <p class="hint mt">이름은 쓰지 않아요. 번호만 골라요.</p>
+  </section>`;
+  $$('.num',app).forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.n; const r=roster[n]; beep('tick');
+    if(r && r.online && r.dev!==deviceId){
+      modal(`<h3>${n}번은 다른 컴퓨터에서 접속 중이에요</h3><p>정말 내 번호가 맞나요? 컴퓨터를 바꿔 앉았다면 계속해도 돼요.</p>
+        <div class="row mt"><button class="btn" id="yes">내 번호가 맞아요</button><button class="btn ghost" id="no">다른 번호 고르기</button></div>`);
+      $('#yes').onclick=()=>{ closeModal(); pickNum(n); }; $('#no').onclick=closeModal;
+    } else pickNum(n);
+  });
+}
+function pickNum(n){
+  me.num=n; ls.set('a6_num_'+ROOM,n); my={};
+  const after=()=>{ goPresence(); if(me.group){ go(getp('briefed')?'hub':'brief'); } else go('group'); };
+  if(db) loadMine().then(after); else after();
+}
+function renderGroup(app){
+  app.innerHTML=`<section class="panel center">
+    <h2>${me.num}번 대원, 우리 조는?</h2>
+    <div class="groupgrid">${[1,2,3,4,5].map(g=>`<button class="num" data-g="${g}">${g}<small>조</small></button>`).join('')}</div>
+    <div class="row mt2" style="justify-content:center"><button class="btn ghost" id="back">← 번호 다시 고르기</button></div>
+  </section>`;
+  $$('[data-g]',app).forEach(b=>b.onclick=()=>{ me.group=+b.dataset.g; ls.set('a6_grp_'+ROOM,me.group); save('group',me.group); beep('ok'); go(getp('briefed')?'hub':'brief'); });
+  $('#back').onclick=()=>{ ls.del('a6_num_'+ROOM); me.num=null; go('entry'); };
+}
+
+/* ===================== 브리핑 ===================== */
+function renderBrief(app){
+  where('브리핑');
+  app.innerHTML=`<section class="panel">
+    <div class="row"><span class="tag red">🚨 긴급 미션 브리핑</span><span class="tag">교재 37쪽</span></div>
+    <div class="ai-box mt"><div class="radar"></div><div class="ai-say" id="ais">🤖 AI: “산소 시스템은 정상입니다!”</div></div>
+    <div class="typer mt" id="typer"></div>
+    <div class="row mt"><button class="btn hidden" id="startbtn">🚀 수사 시작!</button></div>
+  </section>`;
+  const text = `큰일 났어!\nAI가 달 기지의 산소 공급이 ‘정상’이라고 판단했는데,\n사실은 B구역의 낮 시간(06:00~18:00) 데이터만 보고 분석한 것이었어!\n\n일부만 모인 편향된 데이터가 우리를 속이고 있어.\n${me.num}번 대원, 올바른 데이터와 차트를 구별해 내자!`;
+  typeWriter($('#typer'), text, ()=>{ $('#ais').classList.add('glitch'); $('#ais').textContent='⚠ AI: “낮 데이터만… 분석… 했…습니다…”'; beep('no'); $('#startbtn').classList.remove('hidden'); });
+  $('#startbtn').onclick=()=>{ save('briefed',true); beep('ok'); go('hub'); };
+}
+function typeWriter(el,text,done){ let i=0; el.innerHTML='<span class="cur"></span>'; const t=setInterval(()=>{ i++; el.innerHTML=esc(text.slice(0,i))+'<span class="cur"></span>'; if(i%3===0) beep('tick'); if(i>=text.length){ clearInterval(t); done&&done(); } }, 28); el.onclick=()=>{ i=text.length-1; }; }
+
+/* ===================== 미션 지도 ===================== */
+const M = [
+  {id:'m1', no:'미션 1', title:'속이는 차트 구별하기', sub:'Y축을 조종해서 속임수를 찾아요', book:'교재 38쪽 · 활동 1', grad:'radial-gradient(circle at 35% 35%,#7ce7ff,#2f6fde 60%,#14306e)', total:4},
+  {id:'m2', no:'미션 2', title:'누락 데이터 탐정', sub:'단서를 찾아 NASA에 긴급 보고서를 보내요', book:'교재 39쪽 · 활동 2', grad:'radial-gradient(circle at 35% 35%,#ffd38a,#ff7a45 60%,#7a2a10)', total:4},
+  {id:'m3', no:'미션 3', title:'6차시 정리', sub:'편향된 데이터 · 4단계 · 토론 벽', book:'교재 40쪽', grad:'radial-gradient(circle at 35% 35%,#d3c2ff,#7c5cd6 60%,#2e1c66)', total:3}
+];
+function progress(id){ const s=getp(id+'/stepDone')||{}; return Object.keys(s).length; }
+function renderHub(app){
+  where('미션 지도');
+  app.innerHTML=`<section class="panel"><div class="row"><h2 style="margin:0">🛰️ 미션 지도</h2><div class="sp"></div><span class="tag amber">⭐ ${starTotal()}개 모음</span></div>
+    <p class="muted">선생님이 알려 주는 미션부터 시작해요. 다 끝낸 미션은 초록색으로 빛나요.</p>
+    <div class="missions mt">${M.map(m=>{ const open=control.open[m.id]!==false; const p=progress(m.id); const done=!!getp(m.id+'/done');
+      return `<div class="mcard ${open?'':'locked'} ${done?'done':''}" data-m="${m.id}"><div class="planet" style="background:${m.grad}"></div>
+        <div class="num2">${m.no} · ${m.book}</div><h3>${m.title}</h3><p class="muted">${m.sub}</p>
+        <div class="row">${done?'<span class="tag green">✔ 완료</span>':p?'<span class="tag">진행 중</span>':'<span class="tag amber">시작 전</span>'}</div>
+        <div class="bar"><i style="width:${Math.round(p/m.total*100)}%"></i></div>
+        ${open?'':'<div class="lockico">🔒</div>'}</div>`; }).join('')}</div>
+    <div class="row mt2"><button class="btn ghost" id="chg">번호 바꾸기</button></div></section>`;
+  $$('.mcard',app).forEach(c=>c.onclick=()=>{ const id=c.dataset.m; if(control.open[id]===false){ c.classList.add('shake'); setTimeout(()=>c.classList.remove('shake'),400); toast('아직 잠겨 있어요. 선생님 신호를 기다려요!'); beep('no'); return; } beep('ok'); go(id, Math.min(progress(id), M.find(m=>m.id===id).total-1)); });
+  $('#chg').onclick=()=>{ modal(`<h3>번호를 바꿀까요?</h3><p>지금까지 한 활동은 ${me.num}번에 그대로 남아 있어요.</p><div class="row mt"><button class="btn" id="y">바꿀래요</button><button class="btn ghost" id="n">취소</button></div>`);
+    $('#y').onclick=()=>{ closeModal(); if(db&&me.num) db.ref(`${BASE}/students/${me.num}/online`).set(false); ls.del('a6_num_'+ROOM); ls.del('a6_grp_'+ROOM); me={num:null,group:null}; my={}; go('entry'); }; $('#n').onclick=closeModal; };
+}
+function stepsBar(id,total){ const d=getp(id+'/stepDone')||{}; return `<div class="steps">${[...Array(total)].map((_,i)=>`<span class="${d[i]?'done':i===sub?'on':''}"></span>`).join('')}</div>`; }
+function header(id, title){ const m=M.find(x=>x.id===id); return `<div class="row"><button class="btn ghost" id="tohub" style="padding:8px 14px;font-size:16px">← 미션 지도</button><span class="tag">${m.no} · ${m.book}</span></div>
+  <h2 class="mt">${title}</h2>${stepsBar(id,m.total)}`; }
+function bindNav(id){ const h=$('#tohub'); if(h) h.onclick=()=>go('hub'); }
+function nextBtn(id,label='다음 ▶'){ return `<div class="row mt2"><div class="sp"></div><button class="btn cyan" id="next">${label}</button></div>`; }
+function markStep(id,i){ save(`${id}/stepDone/${i}`, true); }
+function fb(el,type,html){ el.className='fb show '+type; el.innerHTML=html; if(type==='no'){ el.classList.add('shake'); beep('no'); } else if(type==='ok') beep('ok'); }
+
+/* ===================== 미션 1: 속이는 차트 구별하기 ===================== */
+function renderM1(app){
+  const total=4; const s=sub;
+  where(`미션1-${s+1}`);
+  if(s===0){
+    app.innerHTML=`<section class="panel">${header('m1','① 같은 숫자, 다른 느낌')}
+      <p class="big">두 차트는 같은 시간 동안 잰 값이에요. 차이점을 찾아봐요.</p>
+      <div class="grid2 mt"><div class="chartbox"><div class="ct">차트 A <span class="tag">Y축 0~100</span></div>${chartSVG({...SAME,ymin:0,ymax:100,color:'#4fd8ff'})}</div>
+      <div class="chartbox"><div class="ct">차트 B <span class="tag red">Y축 70~100</span></div>${chartSVG({...SAME,ymin:70,ymax:100,color:'#ff7ac6'})}</div></div>
+      <div class="qbox"><span class="qnum">?</span><b>두 차트에 들어 있는 숫자는 어떨까요?</b>
+        <div class="row mt"><button class="chip" data-a="same">숫자가 같아요</button><button class="chip" data-a="diff">숫자가 달라요</button></div><div class="fb" id="f"></div></div>
+      ${nextBtn('m1')}</section>`;
+    bindNav(); const f=$('#f'); const pre=getp('m1/a');
+    $$('[data-a]').forEach(b=>{ if(pre===b.dataset.a) b.classList.add(pre==='same'?'ok':'no');
+      b.onclick=()=>{ $$('[data-a]').forEach(x=>x.className='chip'); save('m1/a',b.dataset.a);
+        if(b.dataset.a==='same'){ b.classList.add('ok'); fb(f,'ok','정답! 숫자(72·75·78·85·92)는 똑같아요. <b>Y축 범위만</b> 달라서 B가 훨씬 급격해 보여요.'); award('m1a',b); markStep('m1',0); }
+        else { b.classList.add('no'); fb(f,'no','점 위의 숫자를 하나씩 비교해 봐요. 정말 다를까요?'); } }; });
+    if(pre==='same') fb(f,'ok','정답! 숫자는 똑같고 <b>Y축 범위만</b> 달라요.');
+    $('#next').onclick=()=>{ if(!getp('m1/stepDone/0')){ toast('먼저 질문에 답해요!'); return; } go('m1',1); };
+  }
+  if(s===1){
+    const trio=[
+      {k:1, ans:'wide', svg:chartSVG({labels:O2.labels,values:O2.values,ymin:0,ymax:100,color:'#4fd8ff',showVals:false}), cap:'산소 농도가 거의 안 변하는 것처럼 보여요'},
+      {k:2, ans:'narrow', svg:chartSVG({labels:TEMP.labels,values:TEMP.values,ymin:22.0,ymax:22.3,color:'#ff7ac6',showVals:false}), cap:'온도가 엄청 요동치는 것처럼 보여요'},
+      {k:3, ans:'cut', svg:chartSVG({labels:['탱크 A','탱크 B'],values:[50,52],ymin:49,ymax:52.5,bar:true,colors:['#4fd8ff','#ffb84d'],valFmt:v=>v+'%'}), cap:'탱크 B가 몇 배나 많아 보여요'}
+    ];
+    const names={wide:'너무 넓은 Y축',narrow:'너무 좁은 Y축',cut:'잘린 축(0에서 시작 안 함)'};
+    app.innerHTML=`<section class="panel">${header('m1','② 속이는 차트 3형제를 잡아라!')}
+      <p class="big">각 차트가 어떤 속임수를 쓰고 있는지 골라요. <span class="tag">교재 37쪽</span></p>
+      <div class="grid2 mt" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">${trio.map(t=>`<div class="chartbox"><div class="ct">용의자 ${t.k}</div>${t.svg}
+        <p class="hint" style="margin:6px">${t.cap}</p><div class="row" style="gap:8px">${Object.keys(names).map(n=>`<button class="chip" data-t="${t.k}" data-v="${n}" style="font-size:15px;padding:8px 12px">${names[n]}</button>`).join('')}</div>
+        <div class="fb" id="f${t.k}"></div></div>`).join('')}</div>
+      ${nextBtn('m1')}</section>`;
+    bindNav();
+    const check=()=>{ const ok=trio.every(t=>getp('m1/b/'+t.k)===t.ans); if(ok){ markStep('m1',1); } return ok; };
+    trio.forEach(t=>{ const pre=getp('m1/b/'+t.k); $$(`[data-t="${t.k}"]`).forEach(b=>{ if(pre===b.dataset.v) b.classList.add(pre===t.ans?'ok':'no');
+      b.onclick=()=>{ $$(`[data-t="${t.k}"]`).forEach(x=>x.className='chip'); save('m1/b/'+t.k,b.dataset.v); const f=$('#f'+t.k);
+        if(b.dataset.v===t.ans){ b.classList.add('ok'); fb(f,'ok', {wide:'맞아요! 범위가 너무 넓어서 변화가 숨어 버렸어요.',narrow:'맞아요! 0.3°C 차이를 아주 좁은 범위로 그려서 크게 보여요.',cut:'맞아요! 축이 49부터 시작해서 2% 차이가 엄청 커 보여요.'}[t.ans]); award('m1b'+t.k,b); }
+        else { b.classList.add('no'); fb(f,'no','다시! Y축의 숫자 범위를 먼저 읽어 봐요.'); }
+        if(check()) setTimeout(()=>{ confetti(); toast('🎉 속이는 차트 3형제 체포 완료!'); },300); }; }); });
+    $('#next').onclick=()=>{ if(!check()){ toast('세 용의자를 모두 맞혀야 다음으로 가요!'); return; } go('m1',2); };
+  }
+  if(s===2){
+    const c3=getp('m1/c3')||{min:0,max:50};
+    app.innerHTML=`<section class="panel">${header('m1','③ 온도 차트 수사 (교재 38쪽)')}
+      <p class="big">같은 온도 데이터(22.0~22.3°C)로 만든 두 차트예요.</p>
+      <div class="grid2 mt"><div class="chartbox"><div class="ct">차트 A <span class="tag">Y축 0~100°C</span></div>${chartSVG({...TEMP,ymin:0,ymax:100,color:'#4fd8ff',valFmt:v=>v.toFixed(1)})}</div>
+      <div class="chartbox"><div class="ct">차트 B <span class="tag red">Y축 22.0~22.3°C</span></div>${chartSVG({...TEMP,ymin:22.0,ymax:22.3,color:'#ff7ac6',valFmt:v=>v.toFixed(1)})}</div></div>
+      <div class="qbox"><span class="qnum">1</span><b>변화를 지나치게 과장한 차트는?</b>
+        <div class="row mt"><button class="chip" data-q1="A">차트 A</button><button class="chip" data-q1="B">차트 B</button></div><div class="fb" id="f1"></div></div>
+      <div class="qbox"><span class="qnum">2</span><b>왜 그렇게 보일까요?</b>
+        <div class="row mt" style="flex-direction:column;align-items:stretch">${['아주 작은 변화(0.3°C)인데 Y축 범위를 너무 좁게 잡아서','온도가 실제로 크게 바뀌어서','데이터 숫자가 틀려서'].map((t,i)=>`<button class="chip" data-q2="${i}" style="text-align:left">${t}</button>`).join('')}</div>
+        <input type="text" id="q2t" class="mt" placeholder="내 말로 한 줄 더 써 볼까요? (선택)" value="${esc(getp('m1/c2t')||'')}">
+        <div class="fb" id="f2"></div></div>
+      <div class="qbox"><span class="qnum">3</span><b>알맞은 Y축 범위를 직접 맞춰 봐요!</b> <span class="hint">변화가 너무 과장되지도, 숨지도 않게</span>
+        <div class="chartbox mt"><div class="ct">내가 만든 차트 <span class="tag amber" id="rngtag"></span></div><div id="mychart"></div></div>
+        <div class="slider"><label>Y축 최솟값 <b id="mnv"></b></label><input type="range" id="mn" min="0" max="22" step="0.1" value="${c3.min}"></div>
+        <div class="slider"><label>Y축 최댓값 <b id="mxv"></b></label><input type="range" id="mx" min="22.3" max="60" step="0.1" value="${c3.max}"></div>
+        <div class="row"><button class="btn" id="chk3">이 범위로 확인!</button></div><div class="fb" id="f3"></div></div>
+      ${nextBtn('m1')}</section>`;
+    bindNav();
+    const f1=$('#f1'),f2=$('#f2'),f3=$('#f3');
+    const p1=getp('m1/c1'); $$('[data-q1]').forEach(b=>{ if(p1===b.dataset.q1) b.classList.add(p1==='B'?'ok':'no');
+      b.onclick=()=>{ $$('[data-q1]').forEach(x=>x.className='chip'); save('m1/c1',b.dataset.q1);
+        if(b.dataset.q1==='B'){ b.classList.add('ok'); fb(f1,'ok','정답! 차트 B는 0.3°C 차이를 화면 가득 그려서 크게 요동치는 것처럼 보여요.'); award('m1c1',b); }
+        else { b.classList.add('no'); fb(f1,'no','차트 A는 오히려 너무 평온해 보이죠? 변화를 <b>부풀린</b> 쪽을 골라요.'); } }; });
+    const p2=getp('m1/c2'); $$('[data-q2]').forEach(b=>{ if(p2!=null && +p2===+b.dataset.q2) b.classList.add(+p2===0?'ok':'no');
+      b.onclick=()=>{ $$('[data-q2]').forEach(x=>x.className='chip'); save('m1/c2',+b.dataset.q2);
+        if(+b.dataset.q2===0){ b.classList.add('ok'); fb(f2,'ok','맞아요! 실제 변화는 아주 작아요. 범위를 좁게 잡으면 작은 변화도 엄청 커 보여요.'); award('m1c2',b); }
+        else { b.classList.add('no'); fb(f2,'no','숫자를 다시 봐요. 22.0~22.3°C, 실제로는 거의 안 변했어요.'); } }; });
+    $('#q2t').oninput=e=>saveSoon('m1/c2t',e.target.value.slice(0,120));
+    const draw=()=>{ let mn=+$('#mn').value, mx=+$('#mx').value; if(mx-mn<0.3){ mx=+(mn+0.3).toFixed(1); $('#mx').value=mx; }
+      $('#mnv').textContent=mn.toFixed(1)+'°C'; $('#mxv').textContent=mx.toFixed(1)+'°C'; $('#rngtag').textContent=`Y축 ${mn.toFixed(1)}~${mx.toFixed(1)}°C`;
+      $('#mychart').innerHTML=chartSVG({...TEMP,ymin:mn,ymax:mx,color:'#ffb84d',valFmt:v=>v.toFixed(1)}); };
+    $('#mn').oninput=draw; $('#mx').oninput=draw; draw();
+    $('#chk3').onclick=()=>{ const mn=+$('#mn').value, mx=+$('#mx').value; const ok = mn>=15 && mn<=21.5 && mx>=23 && mx<=30;
+      save('m1/c3',{min:mn,max:mx,ok});
+      if(ok){ fb(f3,'ok',`좋아요! ${mn.toFixed(1)}~${mx.toFixed(1)}°C 정도면 작은 변화가 과장되지도 숨지도 않아요. (교재 예시: 약 20.0~25.0°C)`); award('m1c3',$('#chk3')); }
+      else if(mx-mn<3) fb(f3,'no','아직 너무 좁아요! 0.3°C 변화가 엄청 커 보이죠? 범위를 넓혀 봐요.');
+      else if(mx-mn>18) fb(f3,'no','이번엔 너무 넓어요! 변화가 아예 안 보여요. 범위를 좁혀 봐요.');
+      else fb(f3,'no','거의 다 왔어요! 22°C 근처가 가운데쯤 오도록 최솟값·최댓값을 조금 바꿔 봐요.');
+      if(getp('m1/c1')==='B' && +getp('m1/c2')===0 && ok){ markStep('m1',2); } };
+    $('#next').onclick=()=>{ if(!(getp('m1/c1')==='B' && +getp('m1/c2')===0 && getp('m1/c3/ok'))){ toast('세 질문을 모두 해결해야 다음으로 가요!'); return; } markStep('m1',2); go('m1',3); };
+  }
+  if(s===3){
+    const lab=getp('m1/d')||{};
+    const missions=[
+      {k:1, t:'😴 위험 숨기기', d:'산소가 거의 안 줄어드는 것처럼 보이게!', test:(mn,mx)=> mx-mn>=60},
+      {k:2, t:'😱 위험 부풀리기', d:'산소가 엄청 요동치는 것처럼 보이게!', test:(mn,mx)=> mx-mn<=10 && mn>=15},
+      {k:3, t:'✅ 정직한 차트', d:'모든 점이 보이고, 너무 과장되지 않게! (브리핑용)', test:(mn,mx)=> mn<=17.5 && mx>=25.3 && mx-mn>=10 && mx-mn<=30}
+    ];
+    let active=+(getp('m1/dActive')||1);
+    app.innerHTML=`<section class="panel">${header('m1','④ Y축 조종실: 5차시 산소 차트')}
+      <p class="big">5차시에 만든 <b>(A구역) 산소 농도</b> 차트예요. 슬라이더로 Y축을 조종해서 세 가지 미션을 깨 봐요!</p>
+      <div class="mission-pill">${missions.map(m=>`<div class="mp ${lab[m.k]?.ok?'clear':''} ${m.k===active?'on':''}" data-mk="${m.k}"><b>${lab[m.k]?.ok?'⭐ ':''}${m.t}</b><span class="hint">${m.d}</span></div>`).join('')}</div>
+      <div class="chartbox"><div class="ct">(A구역) 시간에 따른 산소 농도(%) <span class="tag amber" id="rt"></span></div><div id="labchart"></div></div>
+      <div class="grid2"><div class="slider"><label>Y축 최솟값 <b id="lmnv"></b></label><input type="range" id="lmn" min="0" max="30" step="0.5" value="${lab[active]?.min??10}"></div>
+      <div class="slider"><label>Y축 최댓값 <b id="lmxv"></b></label><input type="range" id="lmx" min="10" max="100" step="0.5" value="${lab[active]?.max??30}"></div></div>
+      <div class="row"><button class="btn ghost" data-pre="0,100">0~100</button><button class="btn ghost" data-pre="17,26">17~26</button><button class="btn ghost" data-pre="10,30">10~30</button><div class="sp"></div><button class="btn" id="labchk">미션 확인!</button></div>
+      <div class="fb" id="lf"></div>
+      <div class="qbox"><b>✍ 브리핑 메모</b> <span class="hint">어떤 범위가 정직했나요? 왜 그런가요?</span><input type="text" id="memo" class="mt" placeholder="예) 10~30이 좋아요. 모든 점이 보이고 줄어드는 모습이 그대로 보여서" value="${esc(getp('m1/memo')||'')}"></div>
+      ${nextBtn('m1','미션 1 완료! 🏅')}</section>`;
+    bindNav(); const lf=$('#lf');
+    const draw=()=>{ let mn=+$('#lmn').value, mx=+$('#lmx').value; if(mx-mn<1){ mx=mn+1; $('#lmx').value=mx; }
+      $('#lmnv').textContent=mn+'%'; $('#lmxv').textContent=mx+'%'; $('#rt').textContent=`Y축 ${mn}~${mx}`;
+      $('#labchart').innerHTML=chartSVG({...O2,ymin:mn,ymax:mx,color:'#4fd8ff',ref:19.5,refLabel:'허용치 19.5%',yLabel:'산소 농도(%)',valFmt:v=>v.toFixed(1)}); };
+    $('#lmn').oninput=draw; $('#lmx').oninput=draw; draw();
+    $$('[data-pre]').forEach(b=>b.onclick=()=>{ const [a,c]=b.dataset.pre.split(',').map(Number); $('#lmn').value=a; $('#lmx').value=c; draw(); beep('tick'); });
+    $$('[data-mk]').forEach(p=>p.onclick=()=>{ active=+p.dataset.mk; save('m1/dActive',active); $$('[data-mk]').forEach(x=>x.classList.toggle('on',+x.dataset.mk===active)); lf.className='fb'; });
+    $('#labchk').onclick=()=>{ const mn=+$('#lmn').value, mx=+$('#lmx').value; const m=missions.find(x=>x.k===active); const ok=m.test(mn,mx);
+      save('m1/d/'+active,{min:mn,max:mx,ok:ok||!!getp(`m1/d/${active}/ok`)});
+      if(ok){ fb(lf,'ok',{1:`성공! Y축 ${mn}~${mx}에서는 산소가 줄어드는 게 거의 안 보여요. 이렇게 위험이 숨을 수 있어요.`,2:`성공! Y축 ${mn}~${mx}에서는 작은 변화도 엄청 커 보여요. 9:20 점이 특히 튀어 보이죠?`,3:`완벽해요! Y축 ${mn}~${mx}는 모든 점이 보이고 흐름이 정직하게 보여요. 브리핑 때 이 차트를 보여 줘요!`}[active]);
+        award('m1d'+active,$('#labchk')); $$('[data-mk]').find(x=>+x.dataset.mk===active).classList.add('clear');
+        const next=missions.find(x=>!getp(`m1/d/${x.k}/ok`)); if(next){ active=next.k; save('m1/dActive',active); setTimeout(()=>$$('[data-mk]').forEach(x=>x.classList.toggle('on',+x.dataset.mk===active)),600); }
+        else { confetti(160); toast('🎉 Y축 조종 미션 모두 성공!'); markStep('m1',3); } }
+      else fb(lf,'no',{1:'아직 변화가 보여요. 범위를 훨씬 넓게(예: 0~100) 해 봐요.',2:'아직 덜 극적이에요. 범위를 좁게(10 이하 차이) 해 봐요. 단, 최솟값은 15 이상!',3:'모든 점(17.5~25.3)이 화면 안에 보이고, 범위 차이는 10~30 사이가 되게 해 봐요.'}[active]); };
+    $('#memo').oninput=e=>saveSoon('m1/memo',e.target.value.slice(0,160));
+    $('#next').onclick=()=>{ const all=missions.every(x=>getp(`m1/d/${x.k}/ok`)); if(!all){ toast('세 가지 조종 미션을 모두 깨 봐요!'); return; } markStep('m1',3); finishMission('m1','📈','차트 감별사 배지','Y축 범위 하나로 같은 데이터가 전혀 다르게 보인다는 걸 알아냈어요!'); };
+  }
+}
+let lastBadge=null;
+function finishMission(id,ico,name,msg){
+  save(id+'/done',true); award(id+'done'); confetti(220); beep('star');
+  lastBadge={ico,name,msg}; go('badge');
+}
+function renderBadge(app){
+  const b=lastBadge||{ico:'🏅',name:'미션 완료',msg:''}; where(b.name+' 획득');
+  app.innerHTML=`<section class="panel badgebig"><div class="medal">${b.ico}</div><h1 class="mt">${b.name} 획득!</h1><p class="big">${b.msg}</p>
+    <div class="row mt2" style="justify-content:center"><button class="btn cyan" id="tohub2">🛰️ 미션 지도로</button></div></section>`;
+  $('#tohub2').onclick=()=>go('hub');
+}
+
+/* ===================== 미션 2: 누락 데이터 탐정 ===================== */
+function renderM2(app){
+  const s=sub; where(`미션2-${s+1}`);
+  if(s===0){
+    const tf=!!getp('m2/timeFound'); const zs=getp('m2/zonesSeen')||{};
+    app.innerHTML=`<section class="panel">${header('m2','① 사건 현장 조사')}
+      <div class="ai-box"><div class="radar"></div><div><div class="tag red">사건 개요 · 교재 39쪽</div>
+      <p class="big">B구역 산소 센서가 고장 나서 <b>낮 데이터(06:00~18:00)만</b> 왔어요. 그런데 AI는 “모두 정상!”이라고 했대요.</p></div></div>
+      <div class="qbox"><span class="qnum">1</span><b>24시간 데이터 수신 기록이에요. 데이터가 빠진 칸을 눌러 찾아요!</b>
+        <div class="timeline" id="tl">${[...Array(24)].map((_,h)=>{ const got=h>=6&&h<18; return `<div class="hr ${got?'got':'miss'} ${!got&&tf?'found':''}" data-h="${h}" title="${h}시"></div>`; }).join('')}</div>
+        <div class="tl-labels">${[...Array(24)].map((_,h)=>`<span>${h%3===0?h:''}</span>`).join('')}</div>
+        <p class="hint">초록 = 데이터가 들어온 시간 · 빗금 = ?</p><div class="fb" id="tf"></div></div>
+      <div class="qbox"><span class="qnum">2</span><b>구역을 하나씩 눌러 산소 데이터를 확인해요.</b>
+        <div class="zones mt">${['A','B','C','D'].map(z=>`<div class="zone ${zs[z]?({A:'unk',B:'bad',C:'ok',D:'ok'}[z]):''}" data-z="${z}"><div class="zn">${z}구역</div><div class="zinfo hint">${zs[z]?zoneInfo(z):'눌러서 확인'}</div></div>`).join('')}</div>
+        <div class="fb" id="zf"></div></div>
+      ${nextBtn('m2')}</section>`;
+    bindNav(); const tfb=$('#tf'), zf=$('#zf');
+    if(tf) fb(tfb,'ok','찾았다! <b>18:00~06:00 밤 시간</b> 데이터가 통째로 빠져 있어요.');
+    $$('.hr').forEach(c=>c.onclick=()=>{ const h=+c.dataset.h; if(h>=6&&h<18){ fb(tfb,'info',`${h}시는 데이터가 잘 들어왔어요(초록). 빗금 칸을 살펴봐요.`); beep('tick'); return; }
+      $$('.hr.miss').forEach(x=>x.classList.add('found')); save('m2/timeFound',true); fb(tfb,'ok','찾았다! <b>18:00~06:00 밤 시간</b> 데이터가 통째로 빠져 있어요.'); award('m2time',c); check(); });
+    $$('.zone').forEach(z=>z.onclick=()=>{ const k=z.dataset.z; save('m2/zonesSeen/'+k,true); z.className='zone '+({A:'unk',B:'bad',C:'ok',D:'ok'}[k]); $('.zinfo',z).innerHTML=zoneInfo(k); beep(k==='C'||k==='D'?'tick':'no');
+      const seen=getp('m2/zonesSeen')||{}; if(seen.A&&seen.B){ fb(zf,'ok','A구역은 산소 데이터가 <b>아예 없고</b>, B구역은 센서가 <b>고장</b>났어요!'); award('m2zone',z); } check(); });
+    function check(){ const seen=getp('m2/zonesSeen')||{}; if(getp('m2/timeFound')&&seen.A&&seen.B) markStep('m2',0); }
+    $('#next').onclick=()=>{ if(!getp('m2/stepDone/0')){ toast('빠진 시간대와 A·B구역을 모두 찾아야 해요!'); return; } go('m2',1); };
+  }
+  if(s===1){
+    const op=getp('m2/cards')||{}; const ev=getp('m2/ev')||{};
+    app.innerHTML=`<section class="panel">${header('m2','② 단서 카드 수집')}
+      <p class="big">카드를 눌러 뒤집고, 위험의 증거가 되는 카드는 <b>⭐ 증거로 채택</b>해요. (2장 이상)</p>
+      <div class="cards mt">${CLUES.map(c=>`<div class="flip ${op[c.n]?'open':''} ${ev[c.n]?'evid':''}" data-c="${c.n}"><div class="in">
+        <div class="f"><div><div class="cn">${c.n}</div><div class="muted">${c.t}</div><div class="mt">🔍 눌러서 확인</div></div></div>
+        <div class="b"><div class="tag" style="background:#ffe0a3;color:#7a4a00;border-color:#e0b25a">${c.n}번 · ${c.t}</div><h4 class="mt">${c.h}</h4><p>${c.b}</p>
+          <button class="chip evbtn" data-e="${c.n}" style="background:${ev[c.n]?'#ffb84d':'#fff'};color:#3a2400;border-color:#e0b25a;font-size:15px">${ev[c.n]?'⭐ 증거 채택됨':'☆ 증거로 채택'}</button></div></div></div>`).join('')}</div>
+      <p class="hint mt">카드 내용은 선생님 데이터 카드(5·25·27·41번)에서 옮겼어요.</p>
+      ${nextBtn('m2')}</section>`;
+    bindNav();
+    $$('.flip').forEach(f=>f.onclick=e=>{ if(e.target.closest('.evbtn')) return; const n=f.dataset.c; f.classList.toggle('open'); beep('tick'); if(!getp('m2/cards/'+n)){ save('m2/cards/'+n,true); }
+      const o=getp('m2/cards')||{}; if(CLUES.every(c=>o[c.n])) award('m2cards',f); });
+    $$('.evbtn').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const n=b.dataset.e; const v=!getp('m2/ev/'+n); save('m2/ev/'+n, v?true:null); const card=b.closest('.flip'); card.classList.toggle('evid',v);
+      b.textContent=v?'⭐ 증거 채택됨':'☆ 증거로 채택'; b.style.background=v?'#ffb84d':'#fff'; beep(v?'ok':'tick'); });
+    $('#next').onclick=()=>{ const o=getp('m2/cards')||{}; const e=Object.values(getp('m2/ev')||{}).filter(Boolean).length;
+      if(!CLUES.every(c=>o[c.n])){ toast('카드 4장을 모두 뒤집어 봐요!'); return; } if(e<2){ toast('증거 카드를 2장 이상 채택해요!'); return; } markStep('m2',1); go('m2',2); };
+  }
+  if(s===2){
+    const q1=getp('m2/q1')||{}, q3=getp('m2/q3')||{};
+    const needs=['밤 시간 산소 측정값','A구역 산소 농도(직접 측정)','기지 바깥 온도','대원들의 저녁 메뉴'];
+    app.innerHTML=`<section class="panel">${header('m2','③ 탐정 수사 노트')}
+      <div class="qbox"><span class="qnum">1</span><b>데이터에 문제가 있는 구역은? (여러 개 고를 수 있어요)</b>
+        <div class="row mt">${['A','B','C','D'].map(z=>`<button class="chip ${q1[z]?'on':''}" data-q1="${z}">${z}구역</button>`).join('')}</div><div class="fb" id="f1"></div></div>
+      <div class="qbox"><span class="qnum">2</span><b>데이터가 빠진 시간대는?</b>
+        <div class="row mt">${[['day','낮 06:00~18:00'],['night','밤 18:00~06:00'],['lunch','점심 12:00~13:00']].map(([k,t])=>`<button class="chip ${getp('m2/q2')===k?'on':''}" data-q2="${k}">${t}</button>`).join('')}</div><div class="fb" id="f2"></div></div>
+      <div class="qbox"><span class="qnum">3</span><b>올바른 결론을 내리려면 어떤 데이터가 더 필요할까요?</b>
+        <div class="row mt">${needs.map((t,i)=>`<button class="chip ${q3[i]?'on':''}" data-q3="${i}">${t}</button>`).join('')}</div>
+        <input type="text" id="q3t" class="mt" placeholder="직접 써도 돼요" value="${esc(getp('m2/q3t')||'')}"><div class="fb" id="f3"></div></div>
+      <div class="qbox"><span class="qnum">4</span><b>최종 판단! 산소 시스템은?</b>
+        <div class="row mt"><button class="chip ${getp('m2/q4')==='정상'?'on':''}" data-q4="정상">🙂 정상</button><button class="chip ${getp('m2/q4')==='위험'?'on':''}" data-q4="위험">🚨 위험</button></div>
+        <p class="mt"><b>근거 2가지</b> <span class="hint">(내가 채택한 증거 카드: ${Object.keys(getp('m2/ev')||{}).filter(k=>getp('m2/ev/'+k)).map(k=>k+'번').join(', ')||'없음'})</span></p>
+        <input type="text" id="r1" placeholder="근거 ① 예) 밤 데이터가 없다(5번)" value="${esc(getp('m2/r1')||'')}">
+        <input type="text" id="r2" class="mt" placeholder="근거 ② 예) B구역 센서를 믿을 수 없다(25번)" value="${esc(getp('m2/r2')||'')}">
+        <div class="fb" id="f4"></div></div>
+      ${nextBtn('m2','보고서 쓰러 가기 ▶')}</section>`;
+    bindNav();
+    $$('[data-q1]').forEach(b=>b.onclick=()=>{ const z=b.dataset.q1; const v=!getp('m2/q1/'+z); save('m2/q1/'+z,v?true:null); b.classList.toggle('on',v); beep('tick'); $('#f1').className='fb'; });
+    $$('[data-q2]').forEach(b=>b.onclick=()=>{ save('m2/q2',b.dataset.q2); $$('[data-q2]').forEach(x=>x.classList.toggle('on',x===b)); beep('tick'); $('#f2').className='fb'; });
+    $$('[data-q3]').forEach(b=>b.onclick=()=>{ const i=b.dataset.q3; const v=!getp('m2/q3/'+i); save('m2/q3/'+i,v?true:null); b.classList.toggle('on',v); beep('tick'); $('#f3').className='fb'; });
+    $$('[data-q4]').forEach(b=>b.onclick=()=>{ save('m2/q4',b.dataset.q4); $$('[data-q4]').forEach(x=>x.classList.toggle('on',x===b)); beep('tick'); $('#f4').className='fb'; });
+    $('#q3t').oninput=e=>saveSoon('m2/q3t',e.target.value.slice(0,100)); $('#r1').oninput=e=>saveSoon('m2/r1',e.target.value.slice(0,100)); $('#r2').oninput=e=>saveSoon('m2/r2',e.target.value.slice(0,100));
+    $('#next').onclick=()=>{
+      let all=true; const q1=getp('m2/q1')||{}; const q3=getp('m2/q3')||{};
+      if(q1.A&&q1.B){ fb($('#f1'),'ok','정답! A구역은 산소 데이터가 빠졌고, B구역은 센서가 고장 났어요.'+((q1.C||q1.D)?' (C·D구역은 데이터는 들어왔지만 27번 카드처럼 여전히 위험 수준이에요.)':'')); award('m2q1'); }
+      else { all=false; fb($('#f1'),'no','사건 현장 조사에서 본 A구역과 B구역을 떠올려 봐요.'); }
+      if(getp('m2/q2')==='night'){ fb($('#f2'),'ok','정답! 밤 18:00~06:00 데이터가 없어요.'); award('m2q2'); } else { all=false; fb($('#f2'),'no','초록 칸이 아니었던 시간을 떠올려 봐요.'); }
+      if(q3[0]||q3[1]){ fb($('#f3'),'ok','좋아요! 빠진 데이터(밤 시간 산소, A구역 산소)를 채워야 결론을 믿을 수 있어요.'); award('m2q3'); } else { all=false; fb($('#f3'),'no','지금 <b>빠져 있는</b> 데이터가 무엇이었는지 생각해 봐요.'); }
+      const r1=($('#r1').value||'').trim(), r2=($('#r2').value||'').trim(); save('m2/r1',r1); save('m2/r2',r2);
+      if(getp('m2/q4')==='위험' && r1.length>=4 && r2.length>=4){ fb($('#f4'),'ok','훌륭한 판단이에요! 데이터가 빠졌다면 “정상”이라고 믿으면 안 돼요.'); award('m2q4'); }
+      else if(getp('m2/q4')==='정상'){ all=false; fb($('#f4'),'no','정말 정상일까요? 밤 데이터가 없고, 밤에 두통을 호소한 대원도 있어요(41번).'); }
+      else { all=false; fb($('#f4'),'no','판단을 고르고 근거 두 가지를 써요.'); }
+      if(all){ markStep('m2',2); confetti(); setTimeout(()=>go('m2',3),1100); }
+    };
+  }
+  if(s===3){
+    const rep=getp('m2/rep')||{}; const sent=getp('m2/sent');
+    const ch={b1:['편향된 데이터','전체 데이터','최신 데이터'], b2:['밤 시간의 산소 상태를 알 수 없기','B구역 센서가 고장 났기','A구역 산소 데이터가 빠졌기'], b3:['수동 확인과 조치','추가 센서 긴급 점검','밤 시간 산소 측정']};
+    app.innerHTML=`<section class="panel">${header('m2','④ NASA 긴급 보고서')}
+      <p class="big">빈칸을 눌러 채우고 지구로 전송해요! 칩을 누르거나 직접 써도 돼요.</p>
+      <div class="report mt" id="rep"><div class="hd"><b>📡 NASA 긴급 보고서</b><span>루나 알파 · ${me.group?me.group+'조 ':''}${me.num}번 대원</span></div>
+        <div class="stamp ${sent?'on':''}" id="stamp">긴급</div>
+        “NASA 본부, 현재 AI의 정상 판단은 <span class="blank"><input id="b1" value="${esc(rep.b1||'')}" placeholder="①"></span>에 기반하고 있기 때문에 믿을 수 없습니다.<br>
+        왜냐하면 <span class="blank"><input id="b2" value="${esc(rep.b2||'')}" placeholder="②"></span> 때문입니다.<br>
+        즉시 <span class="blank"><input id="b3" value="${esc(rep.b3||'')}" placeholder="③"></span>이(가) 필요합니다!”
+      </div>
+      ${['b1','b2','b3'].map((k,i)=>`<div class="row mt"><span class="tag amber">${'①②③'[i]}</span>${ch[k].map(t=>`<button class="chip" data-k="${k}" data-v="${esc(t)}" style="font-size:15px;padding:8px 12px">${esc(t)}</button>`).join('')}</div>`).join('')}
+      <div class="sendbar"><i id="sb"></i></div><div class="fb" id="sf"></div>
+      <div class="row mt2"><div class="sp"></div><button class="btn" id="send">📡 지구로 전송!</button></div></section>`;
+    bindNav();
+    ['b1','b2','b3'].forEach(k=>{ $('#'+k).oninput=e=>saveSoon('m2/rep/'+k,e.target.value.slice(0,80)); });
+    $$('[data-k]').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; $('#'+k).value=b.dataset.v; save('m2/rep/'+k,b.dataset.v); beep('tick'); });
+    if(sent) fb($('#sf'),'ok','✅ NASA 본부가 보고서를 받았어요! 고치고 싶으면 다시 전송해도 돼요.');
+    $('#send').onclick=()=>{
+      const b1=$('#b1').value.trim(), b2=$('#b2').value.trim(), b3=$('#b3').value.trim();
+      if(!b1||!b2||!b3){ fb($('#sf'),'no','빈칸 세 개를 모두 채워요!'); return; }
+      if(/전체|최신/.test(b1) && !/편향|치우/.test(b1)){ fb($('#sf'),'no','①을 다시 봐요. 낮 데이터만 본 데이터는 어떤 데이터일까요? (교재 37쪽)'); return; }
+      save('m2/rep',{b1,b2,b3}); $('#send').disabled=true; beep('send'); const sb=$('#sb'); let p=0;
+      fb($('#sf'),'info','📡 지구까지 384,400km… 전송 중');
+      const t=setInterval(()=>{ p+=4; sb.style.width=p+'%'; if(p>=100){ clearInterval(t); save('m2/sent',Date.now()); $('#stamp').classList.add('on'); award('m2send',$('#send'));
+        fb($('#sf'),'ok','✅ NASA 본부 수신 완료! 브리핑 때 커뮤니케이터가 이 내용을 1분 안에 발표해요.'); $('#send').disabled=false; markStep('m2',3);
+        setTimeout(()=>finishMission('m2','🕵️','데이터 탐정 배지','빠진 데이터를 찾아내 AI의 잘못된 판단을 바로잡았어요!'),1800); } },45);
+    };
+  }
+}
+function zoneInfo(z){ return {A:'❓ <b>산소 데이터 없음</b>',B:'⚠️ <b>센서 고장</b><br>낮 데이터만 옴',C:'✅ 데이터 수신 중',D:'✅ 데이터 수신 중'}[z]; }
+
+/* ===================== 미션 3: 정리 ===================== */
+let orderPick=[];
+function renderM3(app){
+  const s=sub; where(`미션3-${s+1}`);
+  if(s===0){
+    app.innerHTML=`<section class="panel">${header('m3','① 편향된 데이터란?')}
+      <div class="qbox"><span class="qnum">1</span><b>편향된 데이터란 무엇인가요? 한 줄로 써 보세요.</b> <span class="tag">교재 40쪽 1번</span>
+        <input type="text" id="w1" class="mt" maxlength="100" placeholder="편향된 데이터는 ..." value="${esc(getp('m3/q1')||'')}">
+        <div class="fb" id="f1"></div></div>
+      ${nextBtn('m3','제출하고 다음 ▶')}</section>`;
+    bindNav(); $('#w1').oninput=e=>saveSoon('m3/q1',e.target.value);
+    if(getp('m3/stepDone/0')) fb($('#f1'),'ok','제출 완료! 교재 37쪽: “전체를 대표하지 못하고 한쪽으로 치우친 데이터”');
+    $('#next').onclick=()=>{ const v=$('#w1').value.trim(); if(v.length<5){ fb($('#f1'),'no','조금 더 써 봐요! (5글자 이상)'); return; } save('m3/q1',v); award('m3q1',$('#next')); markStep('m3',0);
+      fb($('#f1'),'ok','좋아요! 교재 37쪽: “전체를 대표하지 못하고 한쪽으로 치우친 데이터”'); setTimeout(()=>go('m3',1),1300); };
+  }
+  if(s===1){
+    const shuffled=getp('m3/shuf') || [...STEPS4].sort(()=>Math.random()-.5); if(!getp('m3/shuf')) save('m3/shuf',shuffled);
+    orderPick=[];
+    app.innerHTML=`<section class="panel">${header('m3','② 올바른 차트 읽기 4단계')}
+      <p class="big">1단계부터 순서대로 카드를 눌러요! <span class="tag">교재 40쪽 2번</span></p>
+      <div class="order mt" id="ord">${shuffled.map(t=>`<div class="ocard" data-t="${esc(t)}"><div class="o">?</div>${esc(t)}</div>`).join('')}</div>
+      <div class="row mt"><button class="btn ghost" id="rs">다시 고르기</button></div><div class="fb" id="f2"></div>
+      ${nextBtn('m3')}</section>`;
+    bindNav();
+    if(getp('m3/q2ok')) fb($('#f2'),'ok','이미 맞혔어요! 데이터 범위 → Y축 눈금 → 전체 흐름 → 추가 정보');
+    $$('.ocard').forEach(c=>c.onclick=()=>{ if(c.classList.contains('pick')) return; orderPick.push(c.dataset.t); c.classList.add('pick'); $('.o',c).textContent=orderPick.length; beep('tick');
+      if(orderPick.length===4){ const ok=orderPick.every((t,i)=>t===STEPS4[i]); save('m3/q2tries',(getp('m3/q2tries')||0)+1);
+        if(ok){ save('m3/q2ok',true); fb($('#f2'),'ok','완벽해요! ① 데이터 범위 확인 → ② Y축 눈금 확인 → ③ 전체 흐름 보기 → ④ 추가 정보 확인'); award('m3q2',c); markStep('m3',1); confetti(); }
+        else { fb($('#f2'),'no','순서가 조금 달라요. “범위 → 눈금 → 흐름 → 추가 정보”를 떠올려 다시 해 봐요!'); setTimeout(reset,1400); } } });
+    function reset(){ orderPick=[]; $$('.ocard').forEach(c=>{ c.classList.remove('pick'); $('.o',c).textContent='?'; }); }
+    $('#rs').onclick=reset;
+    $('#next').onclick=()=>{ if(!getp('m3/q2ok')){ toast('4단계 순서를 맞혀야 다음으로 가요!'); return; } go('m3',2); };
+  }
+  if(s===2){
+    app.innerHTML=`<section class="panel">${header('m3','③ 우주 토론 벽')}
+      <div class="qbox"><span class="qnum">3</span><b>일부러 왜곡된 데이터는 사람들의 결정에 어떤 치명적인 영향을 줄 수 있을까요?</b>
+        <p class="hint">모둠 친구들과 이야기한 뒤, 내 생각을 써서 벽에 붙여요. <span class="tag">교재 40쪽 3번</span></p>
+        <textarea id="w3" maxlength="200" placeholder="예) 위험한데도 안전하다고 믿어서 사람이 다칠 수 있어요. 왜냐하면 ...">${esc(getp('m3/q3')||'')}</textarea>
+        <div class="row mt"><div class="sp"></div><button class="btn" id="post">📌 토론 벽에 붙이기</button></div><div class="fb" id="f3"></div></div>
+      <h3 class="mt">🪐 친구들의 생각</h3><div class="wall" id="wall"></div>
+      ${nextBtn('m3','6차시 미션 완료! 🏅')}</section>`;
+    bindNav(); renderWall();
+    $('#w3').oninput=e=>saveSoon('m3/q3',e.target.value);
+    $('#post').onclick=()=>{ const v=$('#w3').value.trim(); if(v.length<10){ fb($('#f3'),'no','조금 더 자세히 써 봐요! (10글자 이상)'); return; }
+      save('m3/q3',v); if(db) db.ref(`${BASE}/wall/${me.num}`).set({num:me.num,group:me.group||null,text:v,ts:Date.now()}).catch(()=>{});
+      else { wall[me.num]={num:me.num,group:me.group,text:v,ts:Date.now()}; renderWall(); }
+      award('m3q3',$('#post')); markStep('m3',2); fb($('#f3'),'ok','벽에 붙였어요! 친구들 생각도 읽어 봐요.'); };
+    $('#next').onclick=()=>{ if(!getp('m3/stepDone/2')){ toast('토론 벽에 내 생각을 붙여야 해요!'); return; } finishMission('m3','🎙️','커뮤니케이터 준비 완료','편향된 데이터와 속이는 차트를 구별하는 눈을 가졌어요. 이제 1분 브리핑으로 알려 줘요!'); };
+  }
+}
+function renderWall(){ const el=$('#wall'); if(!el) return; const items=Object.values(wall||{}).filter(x=>x&&x.text).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  el.innerHTML = items.length? items.map((w,i)=>`<div class="note" style="--rot:${((w.num*37)%7)-3}deg"><b>${w.group?w.group+'조 · ':''}${w.num}번 대원</b>${esc(w.text)}</div>`).join('') : '<p class="muted">아직 붙은 생각이 없어요. 첫 번째로 붙여 볼까요?</p>'; }
+
+/* ===================== 시작 ===================== */
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && db && me.num) db.ref(`${BASE}/students/${me.num}/online`).set(true).catch(()=>{}); });
+render();
+window.addEventListener('load',initFirebase);
+</script>
+</body>
+</html>

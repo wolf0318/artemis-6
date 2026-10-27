@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>6차시 관제 센터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#060d1f;--panel:#0f1c38;--panel2:#152a52;--line:rgba(120,190,255,.22);--ink:#eef4ff;--muted:#9db2d8;--amber:#ffb84d;--cyan:#4fd8ff;--green:#3ee6a8;--red:#ff5f6d;--violet:#a98bff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 700px at 85% -10%,#1b3570 0%,transparent 60%),var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;font-size:16px;line-height:1.5}
+h1,h2,h3,.jua{font-family:Jua,"Noto Sans KR",sans-serif;font-weight:400}
+.top{position:sticky;top:0;z-index:10;background:rgba(6,13,31,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .in{max-width:1500px;margin:0 auto;padding:10px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.title{font-family:Jua;font-size:26px;display:flex;gap:10px;align-items:center}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red)} .dot.on{background:var(--green);box-shadow:0 0 10px var(--green)}
+.kpi{display:flex;gap:10px;flex-wrap:wrap}
+.k{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:6px 12px;font-weight:700}
+.k b{color:var(--amber);font-size:20px}
+.sp{flex:1}
+.wrap{max-width:1500px;margin:0 auto;padding:16px 18px 60px}
+.panel{background:linear-gradient(180deg,rgba(21,42,82,.92),rgba(15,28,56,.92));border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{appearance:none;border:0;cursor:pointer;font:inherit;font-weight:700;color:#08142c;background:var(--amber);padding:9px 14px;border-radius:12px}
+.btn.cyan{background:var(--cyan)} .btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line)} .btn.red{background:var(--red);color:#fff}
+.tog{appearance:none;border:2px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);font:inherit;font-weight:700;padding:8px 14px;border-radius:999px;cursor:pointer}
+.tog.on{background:var(--green);color:#063626;border-color:var(--green)} .tog.off{background:rgba(255,95,109,.2);border-color:var(--red)}
+input[type=text]{font:inherit;color:var(--ink);background:rgba(4,10,26,.6);border:2px solid var(--line);border-radius:12px;padding:8px 12px;min-width:280px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+.tab{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);font:inherit;font-weight:700;padding:10px 16px;border-radius:12px;cursor:pointer}
+.tab.on{background:var(--cyan);color:#06213a;border-color:var(--cyan)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.st{border-radius:16px;padding:12px;border:1px solid var(--line);background:linear-gradient(160deg,#1a3366,#101f40);cursor:pointer;transition:.15s;position:relative}
+.st:hover{transform:translateY(-2px);border-color:var(--cyan)}
+.st.empty{opacity:.35;cursor:default}
+.st .n{font-family:Jua;font-size:30px;line-height:1}
+.st .w{font-size:13px;color:var(--muted);margin-top:2px;min-height:20px}
+.st .stars{position:absolute;right:12px;top:10px;font-weight:900;color:var(--amber)}
+.st .dot{position:absolute;right:12px;top:38px;width:10px;height:10px}
+.bars{display:grid;gap:5px;margin-top:8px}
+.bar{display:grid;grid-template-columns:40px 1fr 28px;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.bar .t{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+.bar .t i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--green))}
+.badges{margin-top:6px;font-size:18px;min-height:22px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(79,216,255,.15);color:var(--cyan);border:1px solid rgba(79,216,255,.35)}
+.tag.g{background:rgba(62,230,168,.15);color:var(--green);border-color:rgba(62,230,168,.4)} .tag.r{background:rgba(255,95,109,.15);color:var(--red);border-color:rgba(255,95,109,.4)} .tag.a{background:rgba(255,184,77,.15);color:var(--amber);border-color:rgba(255,184,77,.4)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:700;position:sticky;top:64px;background:#0f1c38}
+.ok{color:var(--green);font-weight:900} .no{color:var(--red);font-weight:900} .na{color:#5d6f93}
+.stat{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:12px}
+.sbox{background:rgba(4,10,26,.45);border:1px solid var(--line);border-radius:14px;padding:12px}
+.sbox .big{font-family:Jua;font-size:30px;color:var(--amber)}
+.hbar{height:16px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px;display:flex}
+.hbar i{display:block;height:100%}
+.reports{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}
+.rep{background:linear-gradient(180deg,#f4f7ff,#e3eaf8);color:#13213f;border-radius:14px;padding:14px;cursor:pointer;border:2px solid #b8c6e6;line-height:1.75}
+.rep .h{display:flex;justify-content:space-between;font-weight:900;color:#0b2a6b;border-bottom:2px dashed #9fb0d8;margin-bottom:8px;padding-bottom:4px}
+.rep u{text-decoration:none;color:#0b3fa0;font-weight:900;border-bottom:2px solid #0b5bd3}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.note{background:#fff3b5;color:#3a2c00;border-radius:12px;padding:12px;position:relative;box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.note b{display:block;font-family:Jua;color:#8a5b00}
+.note .x{position:absolute;right:8px;top:6px;border:0;background:transparent;cursor:pointer;font-size:16px}
+.modal{position:fixed;inset:0;background:rgba(2,6,16,.75);z-index:50;display:none;place-items:center;padding:16px}
+.modal.show{display:grid}
+.modal .box{max-width:900px;width:100%;max-height:90vh;overflow:auto}
+.proj{font-size:30px;line-height:1.8}
+.muted{color:var(--muted)}
+.rng{display:inline-block;padding:2px 8px;border-radius:8px;background:rgba(255,184,77,.15);color:var(--amber);font-weight:700}
+.linkbox{font-family:monospace;background:rgba(4,10,26,.6);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><div class="in">
+  <div class="title"><span class="dot" id="net"></span>🛰️ 6차시 관제 센터</div>
+  <div class="kpi"><div class="k">접속 <b id="kOn">0</b>명</div><div class="k">들어온 대원 <b id="kAll">0</b>명</div><div class="k">보고서 <b id="kRep">0</b>건</div><div class="k">토론 벽 <b id="kWall">0</b>장</div></div>
+  <div class="sp"></div><div class="k" id="clock"></div>
+</div></div>
+<div class="wrap">
+  <section class="panel">
+    <div class="row"><b>미션 열기/잠그기</b>
+      <button class="tog" data-m="m1">미션 1 속이는 차트</button><button class="tog" data-m="m2">미션 2 누락 데이터 탐정</button><button class="tog" data-m="m3">미션 3 정리</button>
+      <div class="sp"></div><span class="muted">학생 주소</span><span class="linkbox" id="slink"></span><button class="btn ghost" id="copy">복사</button></div>
+    <div class="row" style="margin-top:10px"><b>전체 알림</b><input type="text" id="ann" maxlength="60" placeholder="예) 5분 남았어요! 보고서를 전송해요"><button class="btn cyan" id="annSend">보내기</button><button class="btn ghost" id="annClr">알림 끄기</button>
+      <div class="sp"></div><button class="btn red" id="reset">🧹 새 수업 시작(기록 지우기)</button></div>
+  </section>
+  <div class="tabs">
+    <button class="tab on" data-t="crew">👩‍🚀 대원 현황</button><button class="tab" data-t="m1">📈 미션 1 · Y축</button><button class="tab" data-t="m2">🕵️ 미션 2 · 보고서</button><button class="tab" data-t="m3">🪐 미션 3 · 정리·토론 벽</button>
+    <div class="sp"></div><span class="muted" style="align-self:center">조 보기</span>
+    <select id="gsel" class="tab" style="padding:8px"><option value="">전체</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+  </div>
+  <main id="view"></main>
+</div>
+<div class="modal" id="modal"><div class="box panel" id="mbox"></div></div>
+<script>
+const FB_CONFIG = {
+  apiKey: "AIzaSyAQnkse4wP-o0pLE3Eyt9G69JdRJB6xzWI",
+  authDomain: "artemis-6.firebaseapp.com",
+  databaseURL: "https://artemis-6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "artemis-6",
+  storageBucket: "artemis-6.firebasestorage.app",
+  messagingSenderId: "1686860032",
+  appId: "1:1686860032:web:780e04604f720bcd8f43e5"
+};
+const qs=new URLSearchParams(location.search);
+const ROOM=((qs.get('room')||'main').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,20))||'main';
+const BASE='artemis6/'+ROOM; const MAXN=20;
+const $=(s,el=document)=>el.querySelector(s), $$=(s,el=document)=>[...el.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const g=(o,p)=>p.split('/').reduce((a,k)=>a&&a[k],o);
+let db, S={}, W={}, C={open:{m1:true,m2:true,m3:true}}, tab='crew';
+const studentURL = location.href.replace(/teacher-[^/?#]*\.html.*$/,'') + (ROOM!=='main'?`?room=${ROOM}`:'');
+$('#slink').textContent=studentURL;
+$('#copy').onclick=()=>{ navigator.clipboard?.writeText(studentURL); $('#copy').textContent='복사됨!'; setTimeout(()=>$('#copy').textContent='복사',1200); };
+setInterval(()=>{ $('#clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); },1000);
+function modal(h){ $('#mbox').innerHTML=h; $('#modal').classList.add('show'); }
+$('#modal').onclick=e=>{ if(e.target.id==='modal') $('#modal').classList.remove('show'); };
+
+function init(){
+  if(!window.firebase){ return setTimeout(init,300); }
+  firebase.initializeApp(FB_CONFIG); db=firebase.database();
+  db.ref('.info/connected').on('value',s=>$('#net').classList.toggle('on',!!s.val()));
+  firebase.auth().signInAnonymously().then(()=>{
+    db.ref(BASE+'/students').on('value',s=>{ S=s.val()||{}; draw(); });
+    db.ref(BASE+'/wall').on('value',s=>{ W=s.val()||{}; draw(); });
+    db.ref(BASE+'/control').on('value',s=>{ const v=s.val()||{}; C=Object.assign({},v); C.open=Object.assign({m1:true,m2:true,m3:true},v.open||{}); drawCtl(); });
+  }).catch(e=>alert('파이어베이스 연결 오류: '+e.message));
+}
+function drawCtl(){ $$('.tog').forEach(b=>{ const on=C.open[b.dataset.m]!==false; b.classList.toggle('on',on); b.classList.toggle('off',!on); b.innerHTML=(on?'🔓 ':'🔒 ')+b.textContent.replace(/^[🔓🔒]\s*/u,''); }); }
+$$('.tog').forEach(b=>b.onclick=()=>{ const m=b.dataset.m; db.ref(`${BASE}/control/open/${m}`).set(C.open[m]===false); });
+$('#annSend').onclick=()=>{ const t=$('#ann').value.trim(); if(!t) return; db.ref(BASE+'/control/announce').set({text:t,ts:Date.now()}); $('#ann').value=''; };
+$('#annClr').onclick=()=>db.ref(BASE+'/control/announce').remove();
+$('#reset').onclick=()=>{ modal(`<h2>새 수업을 시작할까요?</h2><p>모든 학생 기록과 토론 벽이 지워지고, 학생 화면은 번호 고르기로 돌아가요. <b>되돌릴 수 없어요.</b></p>
+  <p>계속하려면 아래 칸에 <b>초기화</b>라고 써 주세요.</p><input type="text" id="rc" placeholder="초기화"><div class="row" style="margin-top:12px"><button class="btn red" id="rgo">기록 지우기</button><button class="btn ghost" id="rno">취소</button></div>`);
+  $('#rno').onclick=()=>$('#modal').classList.remove('show');
+  $('#rgo').onclick=async()=>{ if($('#rc').value.trim()!=='초기화') { $('#rc').focus(); return; }
+    await db.ref(BASE+'/students').remove(); await db.ref(BASE+'/wall').remove(); await db.ref(BASE+'/control/announce').remove(); await db.ref(BASE+'/control/resetAt').set(Date.now());
+    $('#modal').classList.remove('show'); }; };
+$$('.tab[data-t]').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; $$('.tab[data-t]').forEach(x=>x.classList.toggle('on',x===b)); draw(); });
+$('#gsel').onchange=draw;
+
+const nums=()=>[...Array(MAXN)].map((_,i)=>i+1);
+const grpOK=n=>{ const gv=$('#gsel').value; return !gv || String(g(S,n+'/group')||'')===gv; };
+const stars=s=>Object.keys((s&&s.ach)||{}).length;
+const prog=(s,m)=>Object.keys(g(s||{},m+'/stepDone')||{}).length;
+const yn=v=>v===true?'<span class="ok">○</span>':v===false?'<span class="no">×</span>':'<span class="na">–</span>';
+
+function draw(){
+  const list=nums().map(n=>[n,S[n]]).filter(([n,s])=>s);
+  $('#kOn').textContent=list.filter(([n,s])=>s.online).length; $('#kAll').textContent=list.length;
+  $('#kRep').textContent=list.filter(([n,s])=>g(s,'m2/sent')).length; $('#kWall').textContent=Object.keys(W).length;
+  ({crew:drawCrew,m1:drawM1,m2:drawM2,m3:drawM3})[tab]();
+}
+function drawCrew(){
+  $('#view').innerHTML=`<div class="grid">${nums().filter(grpOK).map(n=>{ const s=S[n]; if(!s) return `<div class="st empty"><div class="n">${n}</div><div class="w">아직 안 들어옴</div></div>`;
+    return `<div class="st" data-n="${n}"><div class="n">${n}<span style="font-size:15px;color:var(--muted)"> ${s.group?s.group+'조':''}</span></div><div class="stars">⭐${stars(s)}</div><span class="dot ${s.online?'on':''}"></span>
+      <div class="w">${esc(s.where||'')}</div>
+      <div class="bars">${[['미션1','m1',4],['미션2','m2',4],['미션3','m3',3]].map(([l,m,t])=>`<div class="bar"><span>${l}</span><div class="t"><i style="width:${Math.round(prog(s,m)/t*100)}%"></i></div><span>${prog(s,m)}/${t}</span></div>`).join('')}</div>
+      <div class="badges">${g(s,'m1/done')?'📈':''}${g(s,'m2/done')?'🕵️':''}${g(s,'m3/done')?'🎙️':''}${g(s,'m2/sent')?' <span class="tag a">보고서 전송</span>':''}</div></div>`; }).join('')}</div>
+    <p class="muted">카드를 누르면 그 대원의 답을 자세히 볼 수 있어요. 초록 점 = 지금 접속 중.</p>`;
+  $$('.st[data-n]').forEach(c=>c.onclick=()=>detail(+c.dataset.n));
+}
+function detail(n){
+  const s=S[n]||{}; const m1=s.m1||{}, m2=s.m2||{}, m3=s.m3||{}; const d=m1.d||{};
+  const r=x=>x?`<span class="rng">${x.min}~${x.max}</span> ${x.ok?'<span class="ok">성공</span>':'<span class="no">아직</span>'}`:'<span class="na">–</span>';
+  modal(`<div class="row"><h2 style="margin:0">${n}번 대원 ${s.group?`· ${s.group}조`:''}</h2><div class="sp"></div><span class="tag a">⭐ ${stars(s)}</span><button class="btn ghost" onclick="document.getElementById('modal').classList.remove('show')">닫기</button></div>
+   <h3>📈 미션 1</h3><table><tr><td>같은 숫자?</td><td>${m1.a?(m1.a==='same'?'<span class="ok">같아요</span>':'<span class="no">달라요</span>'):'–'}</td></tr>
+   <tr><td>3형제</td><td>${[1,2,3].map(k=>{const ans={1:'wide',2:'narrow',3:'cut'}[k]; const v=g(m1,'b/'+k); return `${k}: ${v?(v===ans?'<span class="ok">○</span>':'<span class="no">×</span>'):'–'}`;}).join(' · ')}</td></tr>
+   <tr><td>교재 38쪽 ①②③</td><td>① ${m1.c1||'–'} · ② ${m1.c2===0?'<span class="ok">○</span>':m1.c2!=null?'<span class="no">×</span>':'–'} ${esc(m1.c2t||'')} · ③ ${m1.c3?`<span class="rng">${m1.c3.min}~${m1.c3.max}°C</span> ${m1.c3.ok?'<span class="ok">○</span>':'<span class="no">×</span>'}`:'–'}</td></tr>
+   <tr><td>Y축 조종실</td><td>숨기기 ${r(d[1])}<br>부풀리기 ${r(d[2])}<br>정직한 차트 ${r(d[3])}</td></tr><tr><td>브리핑 메모</td><td>${esc(m1.memo||'–')}</td></tr></table>
+   <h3>🕵️ 미션 2</h3><table><tr><td>빠진 시간 찾기</td><td>${yn(!!m2.timeFound)}</td></tr><tr><td>뒤집은 카드 / 증거</td><td>${Object.keys(m2.cards||{}).join(', ')||'–'} / ${Object.keys(m2.ev||{}).filter(k=>m2.ev[k]).map(k=>k+'번').join(', ')||'–'}</td></tr>
+   <tr><td>문제 구역</td><td>${Object.keys(m2.q1||{}).filter(k=>m2.q1[k]).join(', ')||'–'}</td></tr><tr><td>빠진 시간대</td><td>${({day:'낮',night:'밤',lunch:'점심'})[m2.q2]||'–'}</td></tr>
+   <tr><td>판단·근거</td><td>${m2.q4||'–'} · ${esc(m2.r1||'')} / ${esc(m2.r2||'')}</td></tr>
+   <tr><td>NASA 보고서</td><td>${m2.rep?repText(m2.rep):'–'} ${m2.sent?'<span class="tag a">전송됨</span>':''}</td></tr></table>
+   <h3>🪐 미션 3</h3><table><tr><td>편향된 데이터란?</td><td>${esc(m3.q1||'–')}</td></tr><tr><td>4단계 순서</td><td>${m3.q2ok?'<span class="ok">성공</span>':'–'} (시도 ${m3.q2tries||0}번)</td></tr><tr><td>토론</td><td>${esc(m3.q3||'–')}</td></tr></table>`);
+}
+function repText(r){ return `“NASA 본부, 현재 AI의 정상 판단은 <u>${esc(r.b1||'＿')}</u>에 기반하고 있기 때문에 믿을 수 없습니다. 왜냐하면 <u>${esc(r.b2||'＿')}</u> 때문입니다. 즉시 <u>${esc(r.b3||'＿')}</u>이(가) 필요합니다!”`; }
+function pct(a,b){ return b?Math.round(a/b*100):0; }
+function drawM1(){
+  const L=nums().filter(grpOK).map(n=>[n,S[n]]).filter(([n,s])=>s&&s.m1);
+  const cnt=f=>L.filter(([n,s])=>f(s.m1||{})).length;
+  const A=cnt(m=>m.c1==='A'), B=cnt(m=>m.c1==='B');
+  $('#view').innerHTML=`<div class="stat">
+    <div class="sbox">같은 숫자 알아챔<div class="big">${cnt(m=>m.a==='same')} / ${L.length}</div></div>
+    <div class="sbox">3형제 모두 맞힘<div class="big">${cnt(m=>g(m,'b/1')==='wide'&&g(m,'b/2')==='narrow'&&g(m,'b/3')==='cut')}</div></div>
+    <div class="sbox">38쪽 ① 과장된 차트는?<div class="row"><span class="tag">A ${A}</span><span class="tag g">B ${B}</span></div><div class="hbar"><i style="width:${pct(A,A+B)}%;background:var(--cyan)"></i><i style="width:${pct(B,A+B)}%;background:var(--green)"></i></div></div>
+    <div class="sbox">38쪽 ③ 알맞은 범위 성공<div class="big">${cnt(m=>g(m,'c3/ok'))}</div></div>
+    <div class="sbox">정직한 차트 미션 성공<div class="big">${cnt(m=>g(m,'d/3/ok'))}</div></div></div>
+    <div class="panel"><table><tr><th>번호</th><th>조</th><th>38쪽 ③ 범위</th><th>😴 숨기기</th><th>😱 부풀리기</th><th>✅ 정직한 차트</th><th>브리핑 메모</th></tr>
+    ${L.map(([n,s])=>{ const m=s.m1, d=m.d||{}; const c=x=>x?`<span class="rng">${x.min}~${x.max}</span> ${x.ok?'<span class="ok">✔</span>':''}`:'<span class="na">–</span>';
+      return `<tr><td><b>${n}</b></td><td>${s.group||''}</td><td>${m.c3?`<span class="rng">${m.c3.min}~${m.c3.max}°C</span> ${m.c3.ok?'<span class="ok">✔</span>':''}`:'–'}</td><td>${c(d[1])}</td><td>${c(d[2])}</td><td>${c(d[3])}</td><td>${esc(m.memo||'')}</td></tr>`; }).join('')||'<tr><td colspan="7" class="muted">아직 기록이 없어요.</td></tr>'}</table></div>`;
+}
+function drawM2(){
+  const L=nums().filter(grpOK).map(n=>[n,S[n]]).filter(([n,s])=>s&&s.m2);
+  const cnt=f=>L.filter(([n,s])=>f(s.m2||{})).length;
+  const D=cnt(m=>m.q4==='위험'), N=cnt(m=>m.q4==='정상');
+  $('#view').innerHTML=`<div class="stat">
+    <div class="sbox">빠진 시간대 찾음<div class="big">${cnt(m=>m.timeFound)} / ${L.length}</div></div>
+    <div class="sbox">카드 4장 모두 확인<div class="big">${cnt(m=>Object.keys(m.cards||{}).length>=4)}</div></div>
+    <div class="sbox">최종 판단<div class="row"><span class="tag r">위험 ${D}</span><span class="tag">정상 ${N}</span></div><div class="hbar"><i style="width:${pct(D,D+N)}%;background:var(--red)"></i><i style="width:${pct(N,D+N)}%;background:var(--cyan)"></i></div></div>
+    <div class="sbox">보고서 전송<div class="big">${cnt(m=>m.sent)}</div></div></div>
+    <p class="muted">보고서를 누르면 화면 가득 크게 보여요. 브리핑 때 띄워 함께 읽어요.</p>
+    <div class="reports">${L.filter(([n,s])=>s.m2.rep).sort((a,b)=>(g(b[1],'m2/sent')||0)-(g(a[1],'m2/sent')||0)).map(([n,s])=>`<div class="rep" data-n="${n}"><div class="h"><span>📡 ${s.group?s.group+'조 · ':''}${n}번 대원</span><span>${s.m2.sent?'✅ 전송':'✏ 작성 중'} · ${s.m2.q4||''}</span></div>${repText(s.m2.rep)}
+      <div style="margin-top:6px;font-size:14px;color:#3a4b70">근거: ${esc(s.m2.r1||'')} / ${esc(s.m2.r2||'')}</div></div>`).join('')||'<p class="muted">아직 보고서가 없어요.</p>'}</div>`;
+  $$('.rep').forEach(r=>r.onclick=()=>{ const s=S[r.dataset.n]; modal(`<div class="rep proj" style="cursor:default"><div class="h"><span>📡 NASA 긴급 보고서 · ${s.group?s.group+'조 · ':''}${r.dataset.n}번 대원</span></div>${repText(s.m2.rep)}<div style="font-size:22px;margin-top:10px">근거: ${esc(s.m2.r1||'')} / ${esc(s.m2.r2||'')}</div></div>`); });
+}
+function drawM3(){
+  const L=nums().filter(grpOK).map(n=>[n,S[n]]).filter(([n,s])=>s&&s.m3);
+  const notes=Object.entries(W).filter(([k,w])=>{ const gv=$('#gsel').value; return !gv||String(w.group||'')===gv; }).sort((a,b)=>(b[1].ts||0)-(a[1].ts||0));
+  $('#view').innerHTML=`<div class="stat"><div class="sbox">1번 제출<div class="big">${L.filter(([n,s])=>s.m3.q1).length}</div></div><div class="sbox">4단계 순서 성공<div class="big">${L.filter(([n,s])=>s.m3.q2ok).length}</div></div><div class="sbox">토론 벽<div class="big">${notes.length}장</div></div></div>
+    <div class="panel"><h3 style="margin-top:0">1. 편향된 데이터란?</h3><table>${L.filter(([n,s])=>s.m3.q1).map(([n,s])=>`<tr><td style="width:70px"><b>${n}</b>${s.group?` <span class="muted">${s.group}조</span>`:''}</td><td>${esc(s.m3.q1)}</td></tr>`).join('')||'<tr><td class="muted">아직 없어요.</td></tr>'}</table></div>
+    <h3>🪐 3. 우주 토론 벽 <span class="muted" style="font-size:15px">(× 를 누르면 벽에서 내려요)</span></h3>
+    <div class="wall">${notes.map(([k,w])=>`<div class="note"><button class="x" data-k="${esc(k)}" title="벽에서 내리기">✕</button><b>${w.group?w.group+'조 · ':''}${w.num}번 대원</b>${esc(w.text)}</div>`).join('')||'<p class="muted">아직 붙은 생각이 없어요.</p>'}</div>`;
+  $$('.note .x').forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm('이 글을 토론 벽에서 내릴까요?')) db.ref(`${BASE}/wall/${b.dataset.k}`).remove(); });
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>
