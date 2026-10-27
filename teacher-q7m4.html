@@ -128,7 +128,7 @@ function init(){
   firebase.initializeApp(FB_CONFIG); db=firebase.database();
   db.ref('.info/connected').on('value',s=>$('#net').classList.toggle('on',!!s.val()));
   firebase.auth().signInAnonymously().then(()=>{
-    db.ref(BASE+'/students').on('value',s=>{ S=s.val()||{}; draw(); });
+    db.ref(BASE+'/students').on('value',s=>{ const v=s.val()||{}; S={}; Object.keys(v).forEach(k=>{ if(v[k]&&v[k].dev) S[k]=v[k]; }); draw(); });
     db.ref(BASE+'/wall').on('value',s=>{ W=s.val()||{}; draw(); });
     db.ref(BASE+'/control').on('value',s=>{ const v=s.val()||{}; C=Object.assign({},v); C.open=Object.assign({m1:true,m2:true,m3:true},v.open||{}); drawCtl(); });
   }).catch(e=>alert('파이어베이스 연결 오류: '+e.message));
@@ -141,7 +141,11 @@ $('#reset').onclick=()=>{ modal(`<h2>새 수업을 시작할까요?</h2><p>모�
   <p>계속하려면 아래 칸에 <b>초기화</b>라고 써 주세요.</p><input type="text" id="rc" placeholder="초기화"><div class="row" style="margin-top:12px"><button class="btn red" id="rgo">기록 지우기</button><button class="btn ghost" id="rno">취소</button></div>`);
   $('#rno').onclick=()=>$('#modal').classList.remove('show');
   $('#rgo').onclick=async()=>{ if($('#rc').value.trim()!=='초기화') { $('#rc').focus(); return; }
-    await db.ref(BASE+'/students').remove(); await db.ref(BASE+'/wall').remove(); await db.ref(BASE+'/control/announce').remove(); await db.ref(BASE+'/control/resetAt').set(Date.now());
+    $('#rgo').disabled=true; $('#rgo').textContent='지우는 중…';
+    // 학생 화면을 먼저 번호 고르기로 돌려보낸 뒤(1.5초 대기) 기록을 지워요. 마지막에 들어온 쓰기까지 함께 지워져요.
+    await db.ref(BASE+'/control/resetAt').set(Date.now()); await db.ref(BASE+'/control/announce').remove();
+    await new Promise(r=>setTimeout(r,1500));
+    await db.ref(BASE+'/students').remove(); await db.ref(BASE+'/wall').remove();
     $('#modal').classList.remove('show'); }; };
 $$('.tab[data-t]').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; $$('.tab[data-t]').forEach(x=>x.classList.toggle('on',x===b)); draw(); });
 $('#gsel').onchange=draw;

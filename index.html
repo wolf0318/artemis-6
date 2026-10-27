@@ -357,7 +357,7 @@ function getp(path,obj=my){ return path.split('/').reduce((o,k)=>o&&o[k],obj); }
 function setp(path,val){ const ks=path.split('/'); let o=my; ks.slice(0,-1).forEach(k=>{ if(typeof o[k]!=='object'||o[k]===null) o[k]={}; o=o[k]; }); o[ks.at(-1)]=val; }
 function save(path,val){ setp(path,val); if(db && me.num){ db.ref(`${BASE}/students/${me.num}/${path}`).set(val).catch(()=>{}); } }
 const debounced={}; function saveSoon(path,val,ms=700){ setp(path,val); clearTimeout(debounced[path]); debounced[path]=setTimeout(()=>save(path,val),ms); }
-function where(w){ save('where',w); save('seen', Date.now()); }
+function where(w){ if(!me.num || getp('where')===w) return; save('where',w); save('seen', Date.now()); }
 function starTotal(){ return Object.keys(my.ach||{}).length; }
 function award(key, el){ if(getp('ach/'+key)) return false; save('ach/'+key, Date.now()); const s=$('#stars'); $('#starn').textContent=starTotal(); s.classList.remove('pop'); void s.offsetWidth; s.classList.add('pop'); beep('star'); starBurst(el||s); return true; }
 function refreshTop(){ $('#starn').textContent=starTotal(); const b=$('#mebadge'); if(me.num){ b.classList.remove('hidden'); b.textContent=`${me.num}번 대원${me.group?` · ${me.group}조`:''}`; } else b.classList.add('hidden'); }
@@ -367,13 +367,20 @@ function initFirebase(){
   if(!window.firebase){ initFirebase.tries=(initFirebase.tries||0)+1; if(initFirebase.tries>40){ offlineMode(); return; } setTimeout(initFirebase,300); return; }
   try{
     firebase.initializeApp(FB_CONFIG); auth=firebase.auth(); db=firebase.database();
-    db.ref('.info/connected').on('value',s=>{ online=!!s.val(); $('#netdot').classList.toggle('off',!online); $('#offline').classList.toggle('show',!online && initFirebase.ready); if(online) goPresence(); });
+    db.ref('.info/connected').on('value',s=>{ online=!!s.val(); $('#netdot').classList.toggle('off',!online); $('#offline').classList.toggle('show',!online && initFirebase.ready);
+      // 다시 연결되면 선생님의 '새 수업' 신호를 먼저 받은 뒤에 자리 표시(이전 수업 번호가 되살아나지 않게)
+      if(online && ctlReady){ clearTimeout(presT); presT=setTimeout(goPresence,1500); } });
     auth.onAuthStateChanged(u=>{ if(u){ initFirebase.ready=true; startData(); } });
     auth.signInAnonymously().catch(e=>{ console.warn(e); offlineMode(); });
   }catch(e){ console.warn(e); offlineMode(); }
 }
 function offlineMode(){ $('#offline').classList.add('show'); }
-let presenceRef=null;
+let presenceRef=null, presT=null, ctlReady=false;
+function leaveSeat(clean){
+  if(db && me.num){ const r=db.ref(`${BASE}/students/${me.num}`); r.child('online').onDisconnect().cancel();
+    if(clean && !my.group) r.remove().catch(()=>{}); else r.child('online').set(false).catch(()=>{}); }
+  ls.del('a6_num_'+ROOM); ls.del('a6_grp_'+ROOM); me={num:null,group:null}; my={};
+}
 function goPresence(){
   if(!db||!me.num) return;
   const r=db.ref(`${BASE}/students/${me.num}`);
@@ -385,16 +392,19 @@ let started=false;
 function startData(){
   if(started) return; started=true;
   db.ref(`${BASE}/control`).on('value',s=>{ const v=s.val()||{}; control=Object.assign({open:{m1:true,m2:true,m3:true}},v); control.open=Object.assign({m1:true,m2:true,m3:true},v.open||{});
-    handleReset(); showAnnounce(); if(current==='hub') render(); });
-  db.ref(`${BASE}/students`).on('value',s=>{ const v=s.val()||{}; roster={}; Object.keys(v).forEach(k=>{ roster[k]={online:!!v[k].online,dev:v[k].dev,group:v[k].group}; }); if(current==='entry') render(); });
+    handleReset(); showAnnounce();
+    if(!ctlReady){ ctlReady=true; resume(); } else if(current==='hub') render(); });
+  db.ref(`${BASE}/students`).on('value',s=>{ const v=s.val()||{}; roster={}; Object.keys(v).forEach(k=>{ if(v[k]&&v[k].dev) roster[k]={online:!!v[k].online,dev:v[k].dev,group:v[k].group}; }); if(current==='entry') render(); });
   db.ref(`${BASE}/wall`).on('value',s=>{ wall=s.val()||{}; if(current==='m3') renderWall(); });
-  if(me.num){ loadMine().then(()=>{ goPresence(); if(current==='entry') current = me.group ? (getp('briefed')?'hub':'brief') : 'group'; render(); }); } else render();
+}
+function resume(){
+  if(me.num){ loadMine().then(()=>{ if(!me.num){ render(); return; } goPresence(); if(current==='entry') current = me.group ? (getp('briefed')?'hub':'brief') : 'group'; render(); }); } else render();
 }
 function loadMine(){ return db.ref(`${BASE}/students/${me.num}`).once('value').then(s=>{ const v=s.val(); if(v){ my=v; if(v.group&&!me.group){ me.group=v.group; ls.set('a6_grp_'+ROOM,v.group);} } refreshTop(); }).catch(()=>{}); }
 function handleReset(){
   const r = control.resetAt? String(control.resetAt):'';
   if(r && r!==resetSeen){ resetSeen=r; ls.set('a6_reset_'+ROOM,r);
-    if(started && (me.num)){ ls.del('a6_num_'+ROOM); ls.del('a6_grp_'+ROOM); me={num:null,group:null}; my={}; refreshTop(); current='entry'; render(); toast('선생님이 새 수업을 시작했어요. 번호를 다시 골라요!',3500); } }
+    if(started && (me.num)){ if(db) db.ref(`${BASE}/students/${me.num}/online`).onDisconnect().cancel(); ls.del('a6_num_'+ROOM); ls.del('a6_grp_'+ROOM); me={num:null,group:null}; my={}; refreshTop(); current='entry'; render(); toast('선생님이 새 수업을 시작했어요. 번호를 다시 골라요!',3500); } }
 }
 let lastAnn='';
 function showAnnounce(){
@@ -446,7 +456,7 @@ function renderGroup(app){
     <div class="row mt2" style="justify-content:center"><button class="btn ghost" id="back">← 번호 다시 고르기</button></div>
   </section>`;
   $$('[data-g]',app).forEach(b=>b.onclick=()=>{ me.group=+b.dataset.g; ls.set('a6_grp_'+ROOM,me.group); save('group',me.group); beep('ok'); go(getp('briefed')?'hub':'brief'); });
-  $('#back').onclick=()=>{ ls.del('a6_num_'+ROOM); me.num=null; go('entry'); };
+  $('#back').onclick=()=>{ leaveSeat(true); go('entry'); };
 }
 
 /* ===================== 브리핑 ===================== */
@@ -484,7 +494,7 @@ function renderHub(app){
     <div class="row mt2"><button class="btn ghost" id="chg">번호 바꾸기</button></div></section>`;
   $$('.mcard',app).forEach(c=>c.onclick=()=>{ const id=c.dataset.m; if(control.open[id]===false){ c.classList.add('shake'); setTimeout(()=>c.classList.remove('shake'),400); toast('아직 잠겨 있어요. 선생님 신호를 기다려요!'); beep('no'); return; } beep('ok'); go(id, Math.min(progress(id), M.find(m=>m.id===id).total-1)); });
   $('#chg').onclick=()=>{ modal(`<h3>번호를 바꿀까요?</h3><p>지금까지 한 활동은 ${me.num}번에 그대로 남아 있어요.</p><div class="row mt"><button class="btn" id="y">바꿀래요</button><button class="btn ghost" id="n">취소</button></div>`);
-    $('#y').onclick=()=>{ closeModal(); if(db&&me.num) db.ref(`${BASE}/students/${me.num}/online`).set(false); ls.del('a6_num_'+ROOM); ls.del('a6_grp_'+ROOM); me={num:null,group:null}; my={}; go('entry'); }; $('#n').onclick=closeModal; };
+    $('#y').onclick=()=>{ closeModal(); leaveSeat(false); go('entry'); }; $('#n').onclick=closeModal; };
 }
 function stepsBar(id,total){ const d=getp(id+'/stepDone')||{}; return `<div class="steps">${[...Array(total)].map((_,i)=>`<span class="${d[i]?'done':i===sub?'on':''}"></span>`).join('')}</div>`; }
 function header(id, title){ const m=M.find(x=>x.id===id); return `<div class="row"><button class="btn ghost" id="tohub" style="padding:8px 14px;font-size:16px">← 미션 지도</button><span class="tag">${m.no} · ${m.book}</span></div>
@@ -792,7 +802,7 @@ function renderWall(){ const el=$('#wall'); if(!el) return; const items=Object.v
   el.innerHTML = items.length? items.map((w,i)=>`<div class="note" style="--rot:${((w.num*37)%7)-3}deg"><b>${w.group?w.group+'조 · ':''}${w.num}번 대원</b>${esc(w.text)}</div>`).join('') : '<p class="muted">아직 붙은 생각이 없어요. 첫 번째로 붙여 볼까요?</p>'; }
 
 /* ===================== 시작 ===================== */
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden && db && me.num) db.ref(`${BASE}/students/${me.num}/online`).set(true).catch(()=>{}); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && db && me.num && online && ctlReady) db.ref(`${BASE}/students/${me.num}/online`).set(true).catch(()=>{}); });
 render();
 window.addEventListener('load',initFirebase);
 </script>
