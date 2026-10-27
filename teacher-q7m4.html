@@ -75,9 +75,27 @@ th{color:var(--muted);font-weight:700;position:sticky;top:64px;background:#0f1c3
 .rng{display:inline-block;padding:2px 8px;border-radius:8px;background:rgba(255,184,77,.15);color:var(--amber);font-weight:700}
 .linkbox{font-family:monospace;background:rgba(4,10,26,.6);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
 .hidden{display:none!important}
+/* 선생님 전용 입장 화면 */
+body.locked .top, body.locked .wrap{display:none}
+.gate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;z-index:100}
+body.locked .gate{display:flex}
+.gate .box{width:min(380px,100%);text-align:center;padding:28px 22px;border-radius:22px}
+.gate h1{font-size:30px;margin:6px 0 4px}
+.gate .gpin{width:100%;font:inherit;font-size:32px;letter-spacing:12px;text-align:center;padding:12px;border-radius:14px;border:1px solid var(--line);background:#0a1530;color:var(--ink);margin:16px 0 12px;outline:none}
+.gate .gpin:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(79,216,255,.25)}
+.gate .msg{min-height:24px;margin-top:10px;color:var(--red);font-weight:700}
+.gate .box.shake{animation:gshk .35s}
+@keyframes gshk{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
 </style>
 </head>
-<body>
+<body class="locked">
+<div class="gate" id="gate"><form class="box panel" id="gform" autocomplete="off">
+  <div style="font-size:44px">🔐</div><h1>6차시 관제 센터</h1>
+  <p class="muted" style="margin:0">선생님 전용이에요. 입장 비밀번호를 입력하세요.</p>
+  <input type="password" class="gpin" id="gpin" inputmode="numeric" maxlength="8" autocomplete="off" aria-label="입장 비밀번호">
+  <button class="btn" type="submit" style="width:100%;font-size:18px;padding:12px">입장</button>
+  <div class="msg" id="gmsg"></div>
+</form></div>
 <div class="top"><div class="in">
   <div class="title"><span class="dot" id="net"></span>🛰️ 6차시 관제 센터</div>
   <div class="kpi"><div class="k">접속 <b id="kOn">0</b>명</div><div class="k">들어온 대원 <b id="kAll">0</b>명</div><div class="k">보고서 <b id="kRep">0</b>건</div><div class="k">토론 벽 <b id="kWall">0</b>장</div></div>
@@ -224,7 +242,21 @@ function drawM3(){
     <div class="wall">${notes.map(([k,w])=>`<div class="note"><button class="x" data-k="${esc(k)}" title="벽에서 내리기">✕</button><b>${w.group?w.group+'조 · ':''}${w.num}번 대원</b>${esc(w.text)}</div>`).join('')||'<p class="muted">아직 붙은 생각이 없어요.</p>'}</div>`;
   $$('.note .x').forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm('이 글을 토론 벽에서 내릴까요?')) db.ref(`${BASE}/wall/${b.dataset.k}`).remove(); });
 }
-window.addEventListener('load',init);
+/* ===== 입장 비밀번호: 맞기 전에는 파이어베이스에 연결하지 않아요 (비밀번호 자체는 코드에 두지 않고 해시만 비교) ===== */
+const GATE_H='f5bc1aab8c8f06cf65f84d34f7912be7f8fc31d82283722b982011a4a61edb6e';
+async function gateHash(p){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('artemis6-gate:'+p)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+let gateFails=0, gateUntil=0, started6=false;
+function gateOK(){ try{ return sessionStorage.getItem('a6_gate')===GATE_H; }catch(e){ return false; } }
+function unlock(){ document.body.classList.remove('locked'); if(!started6){ started6=true; init(); } }
+$('#gform').onsubmit=async e=>{ e.preventDefault(); const now=Date.now(), msg=$('#gmsg');
+  if(now<gateUntil){ msg.textContent=`잠시 후 다시 해 보세요 (${Math.ceil((gateUntil-now)/1000)}초)`; return; }
+  const h=await gateHash($('#gpin').value.trim());
+  if(h===GATE_H){ try{ sessionStorage.setItem('a6_gate',h); }catch(err){} msg.textContent=''; unlock(); return; }
+  gateFails++; $('#gpin').value=''; const b=$('#gform'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+  if(gateFails>=5){ gateFails=0; gateUntil=Date.now()+30000; msg.textContent='5번 틀렸어요. 30초 뒤에 다시 해 보세요.'; }
+  else msg.textContent='비밀번호가 맞지 않아요.';
+  $('#gpin').focus(); };
+window.addEventListener('load',()=>{ if(gateOK()) unlock(); else $('#gpin').focus(); });
 </script>
 </body>
 </html>
